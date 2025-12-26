@@ -41,8 +41,14 @@ export default function Settings() {
     loadSessions();
     loadSchedules();
     loadHolidays();
-    loadConfig();
   }, []);
+
+  // activeSession이 로드된 후 설정 로드
+  useEffect(() => {
+    if (activeSession) {
+      loadConfig();
+    }
+  }, [activeSession]);
 
   const loadSessions = () => {
     const loadedSessions = sessionStorage.load();
@@ -69,7 +75,9 @@ export default function Settings() {
   };
 
   const loadConfig = () => {
-    const config = configStorage.load();
+    if (!activeSession) return;
+    
+    const config = configStorage.load(activeSession.id);
     if (config) {
       // 기존 설정이 있으면 semester, grade, class 유지
       setSemester(config.semester);
@@ -243,15 +251,28 @@ export default function Settings() {
       periodSchedules,
       sessionId: activeSession.id,
     };
-    configStorage.save(config, activeSession.id);
     
-    // 설정 변경 이벤트 발생
-    window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
-      detail: { sessionId: activeSession.id } 
-    }));
-    
-    setSavedMessage('교시 시간표가 저장되었습니다.');
-    setTimeout(() => setSavedMessage(''), 3000);
+    try {
+      configStorage.save(config, activeSession.id);
+      
+      // 설정 변경 이벤트 발생
+      window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
+        detail: { sessionId: activeSession.id } 
+      }));
+      
+      // 저장된 데이터 확인을 위해 다시 로드
+      const savedConfig = configStorage.load(activeSession.id);
+      if (savedConfig && savedConfig.periodSchedules) {
+        setPeriodSchedules(savedConfig.periodSchedules);
+      }
+      
+      setSavedMessage('교시 시간표가 저장되었습니다.');
+      setTimeout(() => setSavedMessage(''), 3000);
+    } catch (error) {
+      console.error('저장 오류:', error);
+      setSavedMessage('저장 중 오류가 발생했습니다.');
+      setTimeout(() => setSavedMessage(''), 3000);
+    }
   };
 
 

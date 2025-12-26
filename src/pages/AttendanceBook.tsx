@@ -52,9 +52,14 @@ export default function AttendanceBook() {
     loadUser();
     loadData();
     loadPendingAttendances();
+  }, [semester, grade, classNum]);
+
+  // schedules가 로드된 후 설정 로드
+  useEffect(() => {
+    if (schedules.length === 0) return; // schedules가 로드될 때까지 대기
     
     // 출석부 탭으로 이동할 때마다 최신 설정 로드
-    console.log('📋 [출석부] 컴포넌트 마운트 - 설정 다시 로드');
+    console.log('📋 [출석부] 컴포넌트 마운트 - 설정 다시 로드', { schedulesLength: schedules.length });
     const sessions = sessionStorage.load();
     const activeSession = getActiveSession(sessions);
     const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
@@ -65,9 +70,8 @@ export default function AttendanceBook() {
     console.log('📋 [출석부] 로드된 설정', config);
     
     if (config && config.periodSchedules && config.periodSchedules.length > 0) {
-      const currentSchedules = sortSchedules(semesterScheduleStorage.load());
       const holidays = holidayStorage.load();
-      const dayType = getDayType(selectedDate, currentSchedules, holidays);
+      const dayType = getDayType(selectedDate, schedules, holidays);
       console.log('📋 [출석부] 날짜 유형', dayType);
       
       const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
@@ -88,7 +92,7 @@ export default function AttendanceBook() {
     } else {
       console.warn('⚠️ [출석부] 설정이 없거나 periodSchedules가 비어있음', { config });
     }
-  }, [semester, grade, classNum, selectedDate]);
+  }, [schedules, selectedDate]);
 
   // 설정 변경 이벤트 리스너 추가
   useEffect(() => {

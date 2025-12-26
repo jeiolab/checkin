@@ -75,10 +75,25 @@ export default function AttendanceBook() {
       const config = configStorage.load(targetSessionId);
       console.log('📥 [출석부] 로드된 설정', config);
       
-      // loadPeriodsForDate 함수 사용 (일관성 유지)
-      if (config) {
-        console.log('📥 [출석부] loadPeriodsForDate 호출', { selectedDate, config, currentSchedules });
-        loadPeriodsForDate(selectedDate, config, currentSchedules);
+      // 설정이 있으면 교시 시간표 직접 업데이트
+      if (config && config.periodSchedules && config.periodSchedules.length > 0) {
+        const holidays = holidayStorage.load();
+        const dayType = getDayType(selectedDate, currentSchedules, holidays);
+        console.log('📥 [출석부] 날짜 유형', dayType);
+        
+        const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
+        console.log('📥 [출석부] 찾은 설정', schedule);
+        
+        if (schedule) {
+          console.log('📥 [출석부] 교시 시간표 업데이트', schedule.periods);
+          setPeriods(schedule.periods);
+          const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
+          setStartPeriod(schedule.startPeriod ?? 1);
+          setEndPeriod(schedule.endPeriod ?? maxPeriod);
+        } else {
+          console.log('📥 [출석부] 해당 dayType의 설정 없음, loadPeriodsForDate 호출');
+          loadPeriodsForDate(selectedDate, config, currentSchedules);
+        }
       } else if (currentSchedules.length > 0) {
         // 설정이 없으면 기본값으로 다시 설정
         const holidays = holidayStorage.load();

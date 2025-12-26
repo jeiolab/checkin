@@ -71,7 +71,11 @@ function App() {
         const user = await getCurrentUser();
         setCurrentUser(user);
       } catch (error) {
-        console.error('초기화 오류:', error);
+        // 개발 모드에서만 오류 로그 출력
+        if (import.meta.env.DEV) {
+          console.error('[APP] 초기화 오류:', error);
+        }
+        // 오류가 발생해도 로딩은 완료 처리
       } finally {
         setLoading(false);
       }

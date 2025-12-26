@@ -17,32 +17,32 @@ export const getAllUsers = async (): Promise<User[]> => {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[SUPABASE USERS] 사용자 목록 조회 오류:', error);
+      // 개발 모드에서만 오류 로그 출력
+      if (import.meta.env.DEV) {
+        console.error('[SUPABASE USERS] 사용자 목록 조회 오류:', error.message);
+      }
       return [];
     }
 
-    // auth.users와 조인하여 이메일 정보 가져오기
-    const users: User[] = [];
-    for (const profile of profiles || []) {
-      const { data: authUser } = await supabase.auth.admin.getUserById(profile.id);
-      
-      users.push({
-        id: profile.id,
-        name: profile.name,
-        email: authUser?.user?.email || profile.email,
-        role: profile.role as UserRole,
-        grade: profile.grade as Grade | undefined,
-        class: profile.class as Class | undefined,
-        subject: profile.subject || undefined,
-        studentId: profile.student_id || undefined,
-        createdAt: profile.created_at || format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
-        lastLogin: profile.updated_at || undefined,
-      });
-    }
+    // 프로필에서 이메일 정보 가져오기 (admin API는 클라이언트에서 사용 불가)
+    const users: User[] = (profiles || []).map(profile => ({
+      id: profile.id,
+      name: profile.name,
+      email: profile.email || '',
+      role: profile.role as UserRole,
+      grade: profile.grade as Grade | undefined,
+      class: profile.class as Class | undefined,
+      subject: profile.subject || undefined,
+      studentId: profile.student_id || undefined,
+      createdAt: profile.created_at || format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+      lastLogin: profile.updated_at || undefined,
+    }));
 
     return users;
   } catch (error) {
-    console.error('[SUPABASE USERS] 예외 발생:', error);
+    if (import.meta.env.DEV) {
+      console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류');
+    }
     return [];
   }
 };
@@ -83,7 +83,9 @@ export const createUser = async (
     });
 
     if (authError || !authData.user) {
-      console.error('[SUPABASE USERS] 사용자 생성 오류:', authError);
+      if (import.meta.env.DEV) {
+        console.error('[SUPABASE USERS] 사용자 생성 오류:', authError?.message || '알 수 없는 오류');
+      }
       return null;
     }
 
@@ -102,7 +104,9 @@ export const createUser = async (
       });
 
     if (profileError) {
-      console.error('[SUPABASE USERS] 프로필 생성 오류:', profileError);
+      if (import.meta.env.DEV) {
+        console.error('[SUPABASE USERS] 프로필 생성 오류:', profileError.message);
+      }
       // 프로필 생성 실패해도 사용자는 생성됨
     }
 
@@ -118,7 +122,9 @@ export const createUser = async (
       createdAt: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
     };
   } catch (error) {
-    console.error('[SUPABASE USERS] 예외 발생:', error);
+    if (import.meta.env.DEV) {
+      console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류');
+    }
     return null;
   }
 };
@@ -153,7 +159,9 @@ export const updateUser = async (
       .eq('id', userId);
 
     if (profileError) {
-      console.error('[SUPABASE USERS] 프로필 업데이트 오류:', profileError);
+      if (import.meta.env.DEV) {
+        console.error('[SUPABASE USERS] 프로필 업데이트 오류:', profileError.message);
+      }
       return false;
     }
 
@@ -165,14 +173,18 @@ export const updateUser = async (
       });
 
       if (metadataError) {
-        console.error('[SUPABASE USERS] 메타데이터 업데이트 오류:', metadataError);
+        if (import.meta.env.DEV) {
+          console.error('[SUPABASE USERS] 메타데이터 업데이트 오류:', metadataError.message);
+        }
         // 메타데이터 업데이트 실패해도 프로필은 업데이트됨
       }
     }
 
     return true;
   } catch (error) {
-    console.error('[SUPABASE USERS] 예외 발생:', error);
+    if (import.meta.env.DEV) {
+      console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류');
+    }
     return false;
   }
 };
@@ -191,16 +203,22 @@ export const deleteUser = async (userId: string): Promise<boolean> => {
       .eq('id', userId);
 
     if (error) {
-      console.error('[SUPABASE USERS] 사용자 삭제 오류:', error);
+      if (import.meta.env.DEV) {
+        console.error('[SUPABASE USERS] 사용자 삭제 오류:', error.message);
+      }
       return false;
     }
 
     // 실제 프로덕션에서는 서버 API를 통해 auth.users에서도 삭제해야 함
-    console.warn('[SUPABASE USERS] 프로필만 삭제됨. 서버 API를 통해 auth.users에서도 삭제해야 합니다.');
+    if (import.meta.env.DEV) {
+      console.warn('[SUPABASE USERS] 프로필만 삭제됨. 서버 API를 통해 auth.users에서도 삭제해야 합니다.');
+    }
 
     return true;
   } catch (error) {
-    console.error('[SUPABASE USERS] 예외 발생:', error);
+    if (import.meta.env.DEV) {
+      console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류');
+    }
     return false;
   }
 };
@@ -215,13 +233,17 @@ export const changePassword = async (newPassword: string): Promise<boolean> => {
     });
 
     if (error) {
-      console.error('[SUPABASE USERS] 비밀번호 변경 오류:', error);
+      if (import.meta.env.DEV) {
+        console.error('[SUPABASE USERS] 비밀번호 변경 오류:', error.message);
+      }
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('[SUPABASE USERS] 예외 발생:', error);
+    if (import.meta.env.DEV) {
+      console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류');
+    }
     return false;
   }
 };

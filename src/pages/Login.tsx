@@ -30,33 +30,25 @@ export default function Login() {
     }
 
     try {
-      console.log('[LOGIN PAGE] 로그인 시도:', { identifier: identifier.trim(), passwordLength: password.length });
-      
       // identifier는 sanitize하지만 password는 원본 그대로 전달 (특수문자 포함)
       const loginResult = await login(identifier.trim(), password);
       
       if (loginResult) {
-        console.log('[LOGIN PAGE] 로그인 성공:', loginResult.name);
         navigate('/');
         // 약간의 지연 후 새로고침 (상태 업데이트를 위해)
         setTimeout(() => {
           window.location.reload();
         }, 100);
       } else {
-        console.log('[LOGIN PAGE] 로그인 실패');
-        setError('이름(또는 이메일) 또는 비밀번호가 올바르지 않습니다. 브라우저 콘솔을 확인하세요.');
+        setError('이름(또는 이메일) 또는 비밀번호가 올바르지 않습니다.');
         setPassword(''); // 보안을 위해 비밀번호 필드 초기화
       }
     } catch (err) {
-      console.error('[LOGIN PAGE] 로그인 오류:', err);
-      
       // 네트워크 오류인 경우 더 명확한 메시지 표시
       let errorMessage = '로그인 중 오류가 발생했습니다.';
       if (err instanceof Error) {
         if (err.message.includes('Failed to fetch') || err.message.includes('ERR_NAME_NOT_RESOLVED')) {
-          errorMessage = 'Supabase 서버에 연결할 수 없습니다. 프로젝트가 일시 중지되었거나 네트워크 문제가 있을 수 있습니다. Supabase 대시보드에서 프로젝트 상태를 확인하세요.';
-        } else {
-          errorMessage = `로그인 중 오류가 발생했습니다: ${err.message}`;
+          errorMessage = '서버에 연결할 수 없습니다. 네트워크 연결을 확인하세요.';
         }
       }
       

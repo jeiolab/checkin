@@ -76,7 +76,9 @@ export const hashPassword = async (password: string, existingSalt?: string): Pro
     // 형식: pbkdf2_sha256_100000_salt_hash
     return `pbkdf2_sha256_100000_${saltBase64}_${hashHex}`;
   } catch (error) {
-    console.error('Password hashing error:', error);
+    if (isDev) {
+      console.error('Password hashing error:', error);
+    }
     // 폴백: 간단한 해시 (하위 호환성)
     return hashPasswordSync(password);
   }
@@ -86,23 +88,20 @@ export const hashPassword = async (password: string, existingSalt?: string): Pro
  * 비밀번호 검증 (비동기)
  * 저장된 해시에서 salt를 추출하여 검증
  */
+// 개발 모드 확인
+const isDev = import.meta.env.DEV;
+
 export const verifyPassword = async (password: string, hashedPassword: string): Promise<boolean> => {
   try {
-    console.log('[VERIFY] 비밀번호 검증 시작:', { hashPrefix: hashedPassword.substring(0, 30) });
-    
     // 새로운 해시 형식 확인 (pbkdf2_sha256_100000_salt_hash)
     if (hashedPassword.startsWith('pbkdf2_sha256_100000_')) {
       // 형식: pbkdf2_sha256_100000_[base64_salt]_[hex_hash]
       const parts = hashedPassword.split('_');
-      console.log('[VERIFY] 해시 파트 수:', parts.length);
       
       if (parts.length >= 5) {
         // salt는 4번째 인덱스부터 마지막 전까지 (마지막이 hash)
         const saltBase64 = parts.slice(3, -1).join('_'); // salt는 base64로 인코딩되어 있음
         const storedHash = parts[parts.length - 1];
-        
-        console.log('[VERIFY] Salt 추출:', saltBase64.substring(0, 20) + '...');
-        console.log('[VERIFY] 저장된 해시:', storedHash.substring(0, 20) + '...');
         
         try {
           // 저장된 salt로 새 해시 생성
@@ -110,21 +109,22 @@ export const verifyPassword = async (password: string, hashedPassword: string): 
           const newHashParts = newHash.split('_');
           const newHashValue = newHashParts[newHashParts.length - 1];
           
-          console.log('[VERIFY] 새 해시:', newHashValue.substring(0, 20) + '...');
           const isValid = newHashValue === storedHash;
-          console.log('[VERIFY] 검증 결과:', isValid);
           
           return isValid;
         } catch (saltError) {
-          console.error('[VERIFY] Salt 파싱 오류:', saltError);
+          if (isDev) {
+            console.error('[VERIFY] Salt 파싱 오류:', saltError);
+          }
           return false;
         }
       } else {
-        console.error('[VERIFY] 잘못된 해시 형식 (파트 수 부족):', parts.length);
+        if (isDev) {
+          console.error('[VERIFY] 잘못된 해시 형식 (파트 수 부족):', parts.length);
+        }
         return false;
       }
     } else if (hashedPassword.startsWith('pbkdf2_sha256_10000_')) {
-      console.log('[VERIFY] 이전 해시 형식으로 검증');
       // 이전 형식 (하위 호환성): 고정 salt 사용
       const keyMaterial = await crypto.subtle.importKey(
         'raw',
@@ -155,7 +155,9 @@ export const verifyPassword = async (password: string, hashedPassword: string): 
     // 폴백: 동기식 검증
     return hashPasswordSync(password) === hashedPassword;
   } catch (error) {
-    console.error('Password verification error:', error);
+    if (isDev) {
+      console.error('Password verification error:', error);
+    }
     // 폴백: 동기식 검증
     return hashPasswordSync(password) === hashedPassword;
   }
@@ -321,7 +323,9 @@ export const encryptData = async (data: string): Promise<string> => {
     // Base64로 인코딩
     return btoa(String.fromCharCode(...combined));
   } catch (error) {
-    console.error('Encryption error:', error);
+    if (isDev) {
+      console.error('Encryption error:', error);
+    }
     // 암호화 실패 시 원본 반환 (하위 호환성)
     return data;
   }
@@ -349,7 +353,9 @@ export const decryptData = async (encryptedData: string): Promise<string> => {
 
     return new TextDecoder().decode(decrypted);
   } catch (error) {
-    console.error('Decryption error:', error);
+    if (isDev) {
+      console.error('Decryption error:', error);
+    }
     // 복호화 실패 시 원본 반환 (하위 호환성)
     return encryptedData;
   }

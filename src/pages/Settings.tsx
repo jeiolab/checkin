@@ -255,18 +255,21 @@ export default function Settings() {
     try {
       configStorage.save(config, activeSession.id);
       
-      // 설정 변경 이벤트 발생
-      window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
-        detail: { sessionId: activeSession.id } 
-      }));
-      
       // 저장된 데이터 확인을 위해 다시 로드
       const savedConfig = configStorage.load(activeSession.id);
       if (savedConfig && savedConfig.periodSchedules) {
         setPeriodSchedules(savedConfig.periodSchedules);
       }
       
-      setSavedMessage('교시 시간표가 저장되었습니다.');
+      // 설정 변경 이벤트 발생 (출석부에 동기화)
+      window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
+        detail: { 
+          sessionId: activeSession.id,
+          config: savedConfig || config
+        } 
+      }));
+      
+      setSavedMessage('교시 시간표가 저장되었습니다. 출석부에 반영되었습니다.');
       setTimeout(() => setSavedMessage(''), 3000);
     } catch (error) {
       console.error('저장 오류:', error);

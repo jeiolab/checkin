@@ -56,17 +56,57 @@ export default function AttendanceBook() {
 
   // 설정 변경 이벤트 리스너 추가
   useEffect(() => {
-    const handleConfigUpdate = () => {
+    const handleConfigUpdate = (event?: Event) => {
       // 설정이 변경되면 현재 날짜의 교시 시간표 다시 로드
-      if (schedules.length > 0) {
-        const sessions = sessionStorage.load();
-        const activeSession = getActiveSession(sessions);
-        const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
-        const sessionId = currentSession?.id;
-        
-        const config = configStorage.load(sessionId);
-        if (config) {
-          loadPeriodsForDate(selectedDate, config, schedules);
+      const customEvent = event as CustomEvent;
+      const sessionId = customEvent?.detail?.sessionId;
+      
+      // schedules가 없으면 로드
+      let currentSchedules = schedules;
+      if (currentSchedules.length === 0) {
+        currentSchedules = sortSchedules(semesterScheduleStorage.load());
+        setSchedules(currentSchedules);
+      }
+      
+      const sessions = sessionStorage.load();
+      const activeSession = getActiveSession(sessions);
+      const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
+      const targetSessionId = sessionId || currentSession?.id;
+      
+      const config = configStorage.load(targetSessionId);
+      if (config) {
+        loadPeriodsForDate(selectedDate, config, currentSchedules);
+      } else if (currentSchedules.length > 0) {
+        // 설정이 없으면 기본값으로 다시 설정
+        const holidays = holidayStorage.load();
+        const dayType = getDayType(selectedDate, currentSchedules, holidays);
+        const defaultPeriods: Period[] = [
+          { period: 1, startTime: '08:30', endTime: '09:20' },
+          { period: 2, startTime: '09:30', endTime: '10:20' },
+          { period: 3, startTime: '10:30', endTime: '11:20' },
+          { period: 4, startTime: '11:30', endTime: '12:20' },
+          { period: 5, startTime: '13:20', endTime: '14:10' },
+          { period: 6, startTime: '14:20', endTime: '15:10' },
+          { period: 7, startTime: '15:20', endTime: '16:10' },
+          { period: 8, startTime: '16:20', endTime: '17:10' },
+          { period: 9, startTime: '19:00', endTime: '19:50' },
+          { period: 10, startTime: '20:00', endTime: '20:50' },
+          { period: 11, startTime: '21:00', endTime: '21:50' },
+          { period: 12, startTime: '22:00', endTime: '22:50' },
+        ];
+        setPeriods(defaultPeriods);
+        if (dayType === 'weekend') {
+          setStartPeriod(1);
+          setEndPeriod(8);
+        } else if (dayType === 'holiday') {
+          setStartPeriod(1);
+          setEndPeriod(6);
+        } else if (dayType === 'vacation') {
+          setStartPeriod(1);
+          setEndPeriod(4);
+        } else {
+          setStartPeriod(1);
+          setEndPeriod(12);
         }
       }
     };

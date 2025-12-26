@@ -57,6 +57,7 @@ export default function AttendanceBook() {
   // 설정 변경 이벤트 리스너 추가
   useEffect(() => {
     const handleConfigUpdate = (event?: Event) => {
+      console.log('📥 [출석부] 설정 업데이트 이벤트 수신', event);
       // 설정이 변경되면 현재 날짜의 교시 시간표 다시 로드
       const customEvent = event as CustomEvent;
       const sessionId = customEvent?.detail?.sessionId;
@@ -68,11 +69,15 @@ export default function AttendanceBook() {
       const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
       const targetSessionId = sessionId || currentSession?.id;
       
+      console.log('📥 [출석부] 세션 정보', { sessionId, targetSessionId, selectedDate });
+      
       // 설정 다시 로드
       const config = configStorage.load(targetSessionId);
+      console.log('📥 [출석부] 로드된 설정', config);
       
       // loadPeriodsForDate 함수 사용 (일관성 유지)
       if (config) {
+        console.log('📥 [출석부] loadPeriodsForDate 호출', { selectedDate, config, currentSchedules });
         loadPeriodsForDate(selectedDate, config, currentSchedules);
       } else if (currentSchedules.length > 0) {
         // 설정이 없으면 기본값으로 다시 설정
@@ -296,20 +301,27 @@ export default function AttendanceBook() {
   };
 
   const loadPeriodsForDate = useCallback((date: string, config: AttendanceConfig | null, schedules: SemesterSchedule[]) => {
+    console.log('🔄 [loadPeriodsForDate] 호출', { date, config, schedules });
     const holidays = holidayStorage.load();
     const dayType = getDayType(date, schedules, holidays);
+    console.log('🔄 [loadPeriodsForDate] 날짜 유형', dayType);
     
     if (config && config.periodSchedules && config.periodSchedules.length > 0) {
       // 공통 설정 사용 (학년별 설정 제거)
       const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
+      console.log('🔄 [loadPeriodsForDate] 찾은 설정', schedule);
       
       if (schedule) {
+        console.log('🔄 [loadPeriodsForDate] 교시 시간표 업데이트', schedule.periods);
         setPeriods(schedule.periods);
         // 교시 범위 설정 - 설정에서 지정한 값 사용
         const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
         // startPeriod와 endPeriod가 명시적으로 설정되어 있으면 사용, 없으면 기본값
-        setStartPeriod(schedule.startPeriod ?? 1);
-        setEndPeriod(schedule.endPeriod ?? maxPeriod);
+        const newStartPeriod = schedule.startPeriod ?? 1;
+        const newEndPeriod = schedule.endPeriod ?? maxPeriod;
+        console.log('🔄 [loadPeriodsForDate] 교시 범위 업데이트', { newStartPeriod, newEndPeriod });
+        setStartPeriod(newStartPeriod);
+        setEndPeriod(newEndPeriod);
         return;
       }
     }
@@ -340,7 +352,7 @@ export default function AttendanceBook() {
       setStartPeriod(1);
       setEndPeriod(12);
     }
-  }, []);
+  }, [selectedDate]);
 
   useEffect(() => {
     // 날짜가 변경되면 해당 날짜의 교시 시간표 로드

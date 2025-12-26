@@ -63,14 +63,17 @@ export const createUser = async (
     subject?: string;
     studentId?: string;
   }
-): Promise<User | null> => {
+): Promise<{ user: User | null; error: string | null }> => {
   try {
+    console.log('[SUPABASE USERS] 사용자 생성 시작:', { email, name: metadata.name, role: metadata.role });
+    
     // 클라이언트에서는 signUp 사용 (서버 API가 없을 경우)
     // 실제로는 서버 API를 통해 admin.createUser를 사용하는 것이 좋음
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: undefined, // 이메일 인증 비활성화 (관리자가 생성하는 경우)
         data: {
           name: metadata.name,
           role: metadata.role,
@@ -83,11 +86,12 @@ export const createUser = async (
     });
 
     if (authError || !authData.user) {
-      if (import.meta.env.DEV) {
-        console.error('[SUPABASE USERS] 사용자 생성 오류:', authError?.message || '알 수 없는 오류');
-      }
-      return null;
+      const errorMessage = authError?.message || '사용자 생성에 실패했습니다.';
+      console.error('[SUPABASE USERS] 사용자 생성 오류:', errorMessage);
+      return { user: null, error: errorMessage };
     }
+
+    console.log('[SUPABASE USERS] Auth 사용자 생성 완료:', authData.user.id);
 
     // 프로필은 트리거가 자동으로 생성하지만, 수동으로도 생성 가능
     const { error: profileError } = await supabase
@@ -104,13 +108,16 @@ export const createUser = async (
       });
 
     if (profileError) {
-      if (import.meta.env.DEV) {
-        console.error('[SUPABASE USERS] 프로필 생성 오류:', profileError.message);
-      }
-      // 프로필 생성 실패해도 사용자는 생성됨
+      const errorMessage = `프로필 생성 오류: ${profileError.message}`;
+      console.error('[SUPABASE USERS] 프로필 생성 오류:', profileError.message);
+      // 프로필 생성 실패해도 사용자는 생성됨 (트리거가 생성할 수 있음)
+      // 하지만 명시적으로 에러를 반환
+      return { user: null, error: errorMessage };
     }
 
-    return {
+    console.log('[SUPABASE USERS] 프로필 생성 완료');
+
+    const newUser: User = {
       id: authData.user.id,
       name: metadata.name,
       email: email,
@@ -121,11 +128,12 @@ export const createUser = async (
       studentId: metadata.studentId,
       createdAt: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
     };
+
+    return { user: newUser, error: null };
   } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류');
-    }
-    return null;
+    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+    console.error('[SUPABASE USERS] 예외 발생:', errorMessage);
+    return { user: null, error: errorMessage };
   }
 };
 

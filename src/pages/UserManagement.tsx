@@ -108,7 +108,7 @@ export default function UserManagement() {
     }
 
     // Supabase로 사용자 생성
-    const newUser = await createUser(
+    const result = await createUser(
       sanitizeInput(userData.email.trim()),
       userData.password,
       {
@@ -121,8 +121,8 @@ export default function UserManagement() {
       }
     );
 
-    if (!newUser) {
-      alert('사용자 생성에 실패했습니다.');
+    if (result.error || !result.user) {
+      alert(`사용자 생성에 실패했습니다.\n${result.error || '알 수 없는 오류'}`);
       return;
     }
 

@@ -52,7 +52,28 @@ export default function AttendanceBook() {
     loadUser();
     loadData();
     loadPendingAttendances();
-  }, [semester, grade, classNum]);
+    
+    // 출석부 탭으로 이동할 때마다 최신 설정 로드
+    console.log('📋 [출석부] 컴포넌트 마운트 - 설정 다시 로드');
+    const sessions = sessionStorage.load();
+    const activeSession = getActiveSession(sessions);
+    const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
+    const sessionId = currentSession?.id;
+    const config = configStorage.load(sessionId);
+    if (config && config.periodSchedules && config.periodSchedules.length > 0) {
+      const currentSchedules = sortSchedules(semesterScheduleStorage.load());
+      const holidays = holidayStorage.load();
+      const dayType = getDayType(selectedDate, currentSchedules, holidays);
+      const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
+      if (schedule) {
+        console.log('📋 [출석부] 마운트 시 설정 로드', schedule.periods);
+        setPeriods(schedule.periods);
+        const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
+        setStartPeriod(schedule.startPeriod ?? 1);
+        setEndPeriod(schedule.endPeriod ?? maxPeriod);
+      }
+    }
+  }, [semester, grade, classNum, selectedDate]);
 
   // 설정 변경 이벤트 리스너 추가
   useEffect(() => {

@@ -44,6 +44,60 @@ export default function AttendanceBook() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
+  const loadPeriodsForDate = useCallback((date: string, config: AttendanceConfig | null, schedules: SemesterSchedule[]) => {
+    console.log('🔄 [loadPeriodsForDate] 호출', { date, config, schedules });
+    const holidays = holidayStorage.load();
+    const dayType = getDayType(date, schedules, holidays);
+    console.log('🔄 [loadPeriodsForDate] 날짜 유형', dayType);
+    
+    if (config && config.periodSchedules && config.periodSchedules.length > 0) {
+      // 공통 설정 사용 (학년별 설정 제거)
+      const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
+      console.log('🔄 [loadPeriodsForDate] 찾은 설정', schedule);
+      
+      if (schedule) {
+        console.log('🔄 [loadPeriodsForDate] 교시 시간표 업데이트', schedule.periods);
+        setPeriods(schedule.periods);
+        // 교시 범위 설정 - 설정에서 지정한 값 사용
+        const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
+        // startPeriod와 endPeriod가 명시적으로 설정되어 있으면 사용, 없으면 기본값
+        const newStartPeriod = schedule.startPeriod ?? 1;
+        const newEndPeriod = schedule.endPeriod ?? maxPeriod;
+        console.log('🔄 [loadPeriodsForDate] 교시 범위 업데이트', { newStartPeriod, newEndPeriod });
+        setStartPeriod(newStartPeriod);
+        setEndPeriod(newEndPeriod);
+        return;
+      }
+    }
+    
+    // 하위 호환성: defaultPeriods 사용
+    if (config?.defaultPeriods) {
+      setPeriods(config.defaultPeriods);
+      const maxPeriod = Math.max(...config.defaultPeriods.map(p => p.period));
+      setStartPeriod(1);
+      setEndPeriod(maxPeriod);
+    } else {
+      // 기본값
+      const defaultPeriods: Period[] = [
+        { period: 1, startTime: '08:30', endTime: '09:20' },
+        { period: 2, startTime: '09:30', endTime: '10:20' },
+        { period: 3, startTime: '10:30', endTime: '11:20' },
+        { period: 4, startTime: '11:30', endTime: '12:20' },
+        { period: 5, startTime: '13:20', endTime: '14:10' },
+        { period: 6, startTime: '14:20', endTime: '15:10' },
+        { period: 7, startTime: '15:20', endTime: '16:10' },
+        { period: 8, startTime: '16:20', endTime: '17:10' },
+        { period: 9, startTime: '19:00', endTime: '19:50' },
+        { period: 10, startTime: '20:00', endTime: '20:50' },
+        { period: 11, startTime: '21:00', endTime: '21:50' },
+        { period: 12, startTime: '22:00', endTime: '22:50' },
+      ];
+      setPeriods(defaultPeriods);
+      setStartPeriod(1);
+      setEndPeriod(12);
+    }
+  }, []);
+
   useEffect(() => {
     const loadUser = async () => {
       const user = await getCurrentUser();
@@ -100,72 +154,29 @@ export default function AttendanceBook() {
       console.log('📥 [출석부] 설정 업데이트 이벤트 수신', event);
       // 설정이 변경되면 현재 날짜의 교시 시간표 다시 로드
       const customEvent = event as CustomEvent;
-      const sessionId = customEvent?.detail?.sessionId;
+      const eventSessionId = customEvent?.detail?.sessionId;
+      const eventConfig = customEvent?.detail?.config;
       
       // 항상 최신 데이터 로드
-      const currentSchedules = sortSchedules(semesterScheduleStorage.load());
       const sessions = sessionStorage.load();
       const activeSession = getActiveSession(sessions);
       const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
-      const targetSessionId = sessionId || currentSession?.id;
+      const targetSessionId = eventSessionId || currentSession?.id;
       
-      console.log('📥 [출석부] 세션 정보', { sessionId, targetSessionId, selectedDate });
+      console.log('📥 [출석부] 세션 정보', { eventSessionId, targetSessionId, selectedDate });
       
-      // 설정 다시 로드
-      const config = configStorage.load(targetSessionId);
+      // 이벤트에서 전달된 config를 우선 사용, 없으면 localStorage에서 로드
+      const config = eventConfig || configStorage.load(targetSessionId);
       console.log('📥 [출석부] 로드된 설정', config);
       
-      // 설정이 있으면 교시 시간표 직접 업데이트
-      if (config && config.periodSchedules && config.periodSchedules.length > 0) {
-        const holidays = holidayStorage.load();
-        const dayType = getDayType(selectedDate, currentSchedules, holidays);
-        console.log('📥 [출석부] 날짜 유형', dayType);
-        
-        const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
-        console.log('📥 [출석부] 찾은 설정', schedule);
-        
-        if (schedule) {
-          console.log('📥 [출석부] 교시 시간표 업데이트', schedule.periods);
-          setPeriods(schedule.periods);
-          const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
-          setStartPeriod(schedule.startPeriod ?? 1);
-          setEndPeriod(schedule.endPeriod ?? maxPeriod);
-        } else {
-          console.log('📥 [출석부] 해당 dayType의 설정 없음, loadPeriodsForDate 호출');
-          loadPeriodsForDate(selectedDate, config, currentSchedules);
-        }
-      } else if (currentSchedules.length > 0) {
-        // 설정이 없으면 기본값으로 다시 설정
-        const holidays = holidayStorage.load();
-        const dayType = getDayType(selectedDate, currentSchedules, holidays);
-        const defaultPeriods: Period[] = [
-          { period: 1, startTime: '08:30', endTime: '09:20' },
-          { period: 2, startTime: '09:30', endTime: '10:20' },
-          { period: 3, startTime: '10:30', endTime: '11:20' },
-          { period: 4, startTime: '11:30', endTime: '12:20' },
-          { period: 5, startTime: '13:20', endTime: '14:10' },
-          { period: 6, startTime: '14:20', endTime: '15:10' },
-          { period: 7, startTime: '15:20', endTime: '16:10' },
-          { period: 8, startTime: '16:20', endTime: '17:10' },
-          { period: 9, startTime: '19:00', endTime: '19:50' },
-          { period: 10, startTime: '20:00', endTime: '20:50' },
-          { period: 11, startTime: '21:00', endTime: '21:50' },
-          { period: 12, startTime: '22:00', endTime: '22:50' },
-        ];
-        setPeriods(defaultPeriods);
-        if (dayType === 'weekend') {
-          setStartPeriod(1);
-          setEndPeriod(8);
-        } else if (dayType === 'holiday') {
-          setStartPeriod(1);
-          setEndPeriod(6);
-        } else if (dayType === 'vacation') {
-          setStartPeriod(1);
-          setEndPeriod(4);
-        } else {
-          setStartPeriod(1);
-          setEndPeriod(12);
-        }
+      // schedules 상태를 사용하여 loadPeriodsForDate 호출
+      if (schedules.length > 0 && config) {
+        console.log('📥 [출석부] loadPeriodsForDate 호출', { selectedDate, config, schedulesLength: schedules.length });
+        loadPeriodsForDate(selectedDate, config, schedules);
+      } else if (schedules.length === 0) {
+        console.warn('⚠️ [출석부] schedules가 아직 로드되지 않음');
+      } else {
+        console.warn('⚠️ [출석부] 설정이 없음');
       }
     };
 
@@ -272,7 +283,7 @@ export default function AttendanceBook() {
       window.removeEventListener('semesterScheduleUpdated', handleSemesterScheduleUpdate);
       window.removeEventListener('sessionUpdated', handleSessionUpdate);
     };
-  }, [selectedDate, schedules, grade, semester]);
+  }, [selectedDate, schedules, loadPeriodsForDate]);
 
   const loadPendingAttendances = () => {
     const pending = getPendingAttendances();
@@ -356,60 +367,6 @@ export default function AttendanceBook() {
       }
     }
   };
-
-  const loadPeriodsForDate = useCallback((date: string, config: AttendanceConfig | null, schedules: SemesterSchedule[]) => {
-    console.log('🔄 [loadPeriodsForDate] 호출', { date, config, schedules });
-    const holidays = holidayStorage.load();
-    const dayType = getDayType(date, schedules, holidays);
-    console.log('🔄 [loadPeriodsForDate] 날짜 유형', dayType);
-    
-    if (config && config.periodSchedules && config.periodSchedules.length > 0) {
-      // 공통 설정 사용 (학년별 설정 제거)
-      const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
-      console.log('🔄 [loadPeriodsForDate] 찾은 설정', schedule);
-      
-      if (schedule) {
-        console.log('🔄 [loadPeriodsForDate] 교시 시간표 업데이트', schedule.periods);
-        setPeriods(schedule.periods);
-        // 교시 범위 설정 - 설정에서 지정한 값 사용
-        const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
-        // startPeriod와 endPeriod가 명시적으로 설정되어 있으면 사용, 없으면 기본값
-        const newStartPeriod = schedule.startPeriod ?? 1;
-        const newEndPeriod = schedule.endPeriod ?? maxPeriod;
-        console.log('🔄 [loadPeriodsForDate] 교시 범위 업데이트', { newStartPeriod, newEndPeriod });
-        setStartPeriod(newStartPeriod);
-        setEndPeriod(newEndPeriod);
-        return;
-      }
-    }
-    
-    // 하위 호환성: defaultPeriods 사용
-    if (config?.defaultPeriods) {
-      setPeriods(config.defaultPeriods);
-      const maxPeriod = Math.max(...config.defaultPeriods.map(p => p.period));
-      setStartPeriod(1);
-      setEndPeriod(maxPeriod);
-    } else {
-      // 기본값
-      const defaultPeriods: Period[] = [
-        { period: 1, startTime: '08:30', endTime: '09:20' },
-        { period: 2, startTime: '09:30', endTime: '10:20' },
-        { period: 3, startTime: '10:30', endTime: '11:20' },
-        { period: 4, startTime: '11:30', endTime: '12:20' },
-        { period: 5, startTime: '13:20', endTime: '14:10' },
-        { period: 6, startTime: '14:20', endTime: '15:10' },
-        { period: 7, startTime: '15:20', endTime: '16:10' },
-        { period: 8, startTime: '16:20', endTime: '17:10' },
-        { period: 9, startTime: '19:00', endTime: '19:50' },
-        { period: 10, startTime: '20:00', endTime: '20:50' },
-        { period: 11, startTime: '21:00', endTime: '21:50' },
-        { period: 12, startTime: '22:00', endTime: '22:50' },
-      ];
-      setPeriods(defaultPeriods);
-      setStartPeriod(1);
-      setEndPeriod(12);
-    }
-  }, [selectedDate]);
 
   useEffect(() => {
     // 날짜가 변경되면 해당 날짜의 교시 시간표 로드

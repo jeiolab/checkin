@@ -234,38 +234,6 @@ export default function Settings() {
     // 자동 저장 제거 - 저장 버튼으로 명시적 저장
   };
 
-  const savePeriodRange = () => {
-    if (!canEdit) {
-      setSavedMessage('설정을 수정할 권한이 없습니다.');
-      setTimeout(() => setSavedMessage(''), 3000);
-      return;
-    }
-
-    if (!activeSession) {
-      setSavedMessage('활성 세션이 없습니다.');
-      setTimeout(() => setSavedMessage(''), 3000);
-      return;
-    }
-
-    const config: AttendanceConfig = {
-      semester,
-      grade,
-      class: classNum,
-      dayPeriodRanges: [],
-      periodSchedules,
-      sessionId: activeSession.id,
-    };
-    configStorage.save(config, activeSession.id);
-    
-    // 설정 변경 이벤트 발생 (출석부 탭에서 감지)
-    window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
-      detail: { sessionId: activeSession.id } 
-    }));
-    
-    setSavedMessage('교시 범위가 저장되었습니다.');
-    setTimeout(() => setSavedMessage(''), 3000);
-  };
-
   const updatePeriodTime = (period: number, field: 'startTime' | 'endTime', value: string) => {
     const updated = periodSchedules.map(ps => {
       if (ps.dayType === selectedDayType) {
@@ -416,14 +384,8 @@ export default function Settings() {
     };
     const updated = [...schedules, newSchedule];
     setSchedules(sortSchedules(updated));
-    semesterScheduleStorage.save(updated);
-    
-    // 학기 일정 변경 이벤트 발생
-    window.dispatchEvent(new CustomEvent('semesterScheduleUpdated'));
-    
+    // 저장은 saveSchedules 함수에서 처리
     setShowScheduleForm(false);
-    setSavedMessage('학기/방학 일정이 추가되었습니다.');
-    setTimeout(() => setSavedMessage(''), 3000);
   };
 
   const handleUpdateSchedule = (schedule: SemesterSchedule | Omit<SemesterSchedule, 'id'>) => {
@@ -439,15 +401,25 @@ export default function Settings() {
       const updatedSchedules = [...schedules];
       updatedSchedules[index] = updated;
       setSchedules(sortSchedules(updatedSchedules));
-      semesterScheduleStorage.save(updatedSchedules);
-      
-      // 학기 일정 변경 이벤트 발생
-      window.dispatchEvent(new CustomEvent('semesterScheduleUpdated'));
-      
+      // 저장은 saveSchedules 함수에서 처리
       setEditingSchedule(null);
-      setSavedMessage('학기/방학 일정이 수정되었습니다.');
-      setTimeout(() => setSavedMessage(''), 3000);
     }
+  };
+
+  const saveSchedules = () => {
+    if (!canEdit) {
+      setSavedMessage('설정을 수정할 권한이 없습니다.');
+      setTimeout(() => setSavedMessage(''), 3000);
+      return;
+    }
+
+    semesterScheduleStorage.save(schedules);
+    
+    // 학기 일정 변경 이벤트 발생
+    window.dispatchEvent(new CustomEvent('semesterScheduleUpdated'));
+    
+    setSavedMessage('학기/방학 일정이 저장되었습니다.');
+    setTimeout(() => setSavedMessage(''), 3000);
   };
 
   const handleDeleteSchedule = (id: string) => {
@@ -459,13 +431,7 @@ export default function Settings() {
     if (confirm('이 학기/방학 일정을 삭제하시겠습니까?')) {
       const updated = schedules.filter(s => s.id !== id);
       setSchedules(updated);
-      semesterScheduleStorage.save(updated);
-      
-      // 학기 일정 변경 이벤트 발생
-      window.dispatchEvent(new CustomEvent('semesterScheduleUpdated'));
-      
-      setSavedMessage('학기/방학 일정이 삭제되었습니다.');
-      setTimeout(() => setSavedMessage(''), 3000);
+      // 저장은 saveSchedules 함수에서 처리
     }
   };
 
@@ -558,12 +524,19 @@ export default function Settings() {
       <div className="settings-section">
         <div className="section-header">
           <h3>학기/방학 일정 관리</h3>
-          {canEdit && (
-            <button onClick={() => setShowScheduleForm(true)} className="add-schedule-btn">
-              <Plus size={18} />
-              <span>일정 추가</span>
-            </button>
-          )}
+          <div className="section-header-actions">
+            {canEdit && (
+              <button onClick={() => setShowScheduleForm(true)} className="add-schedule-btn">
+                <Plus size={18} />
+                <span>일정 추가</span>
+              </button>
+            )}
+            {canEdit && schedules.length > 0 && (
+              <button onClick={saveSchedules} className="save-section-btn">
+                저장
+              </button>
+            )}
+          </div>
         </div>
         <p className="section-description">학기와 방학의 시작일과 종료일을 설정합니다. 출석부에서 날짜에 맞는 학기/방학이 자동으로 선택됩니다.</p>
         
@@ -635,7 +608,14 @@ export default function Settings() {
 
       <div className="settings-section period-settings-section">
         <div className="period-settings-title">
-          <h3>교시별 시간 설정</h3>
+          <div className="section-header-with-button">
+            <h3>교시별 시간 설정</h3>
+            {canEdit && (
+              <button onClick={savePeriodTimes} className="save-section-btn">
+                전체 저장
+              </button>
+            )}
+          </div>
           <p className="section-description">날짜 유형별로 각 교시의 시작 시간과 종료 시간, 그리고 교시 범위를 설정합니다.</p>
         </div>
         
@@ -654,13 +634,8 @@ export default function Settings() {
 
         <div className="period-config-container">
           <div className="period-range-section">
-            <div className="section-label-with-button">
+            <div className="section-label">
               <span>교시 범위</span>
-              {canEdit && (
-                <button onClick={savePeriodRange} className="save-section-btn">
-                  저장
-                </button>
-              )}
             </div>
             <div className="period-range-controls">
               {(() => {
@@ -704,13 +679,8 @@ export default function Settings() {
           </div>
 
           <div className="period-times-section">
-            <div className="section-label-with-button">
+            <div className="section-label">
               <span>교시 시간표</span>
-              {canEdit && (
-                <button onClick={savePeriodTimes} className="save-section-btn">
-                  저장
-                </button>
-              )}
             </div>
             <div className="period-list">
               {getCurrentPeriods().map(p => {

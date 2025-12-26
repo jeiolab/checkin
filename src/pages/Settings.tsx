@@ -231,24 +231,39 @@ export default function Settings() {
     });
     
     setPeriodSchedules(updated);
-    
-    // 자동 저장
-    if (canEdit && activeSession) {
-      const config: AttendanceConfig = {
-        semester,
-        grade,
-        class: classNum,
-        dayPeriodRanges: [],
-        periodSchedules: updated,
-        sessionId: activeSession.id,
-      };
-      configStorage.save(config, activeSession.id);
-      
-      // 설정 변경 이벤트 발생 (출석부 탭에서 감지)
-      window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
-        detail: { sessionId: activeSession.id } 
-      }));
+    // 자동 저장 제거 - 저장 버튼으로 명시적 저장
+  };
+
+  const savePeriodRange = () => {
+    if (!canEdit) {
+      setSavedMessage('설정을 수정할 권한이 없습니다.');
+      setTimeout(() => setSavedMessage(''), 3000);
+      return;
     }
+
+    if (!activeSession) {
+      setSavedMessage('활성 세션이 없습니다.');
+      setTimeout(() => setSavedMessage(''), 3000);
+      return;
+    }
+
+    const config: AttendanceConfig = {
+      semester,
+      grade,
+      class: classNum,
+      dayPeriodRanges: [],
+      periodSchedules,
+      sessionId: activeSession.id,
+    };
+    configStorage.save(config, activeSession.id);
+    
+    // 설정 변경 이벤트 발생 (출석부 탭에서 감지)
+    window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
+      detail: { sessionId: activeSession.id } 
+    }));
+    
+    setSavedMessage('교시 범위가 저장되었습니다.');
+    setTimeout(() => setSavedMessage(''), 3000);
   };
 
   const updatePeriodTime = (period: number, field: 'startTime' | 'endTime', value: string) => {
@@ -264,24 +279,39 @@ export default function Settings() {
       return ps;
     });
     setPeriodSchedules(updated);
-    
-    // 자동 저장
-    if (canEdit && activeSession) {
-      const config: AttendanceConfig = {
-        semester,
-        grade,
-        class: classNum,
-        dayPeriodRanges: [],
-        periodSchedules: updated,
-        sessionId: activeSession.id,
-      };
-      configStorage.save(config, activeSession.id);
-      
-      // 설정 변경 이벤트 발생
-      window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
-        detail: { sessionId: activeSession.id } 
-      }));
+    // 자동 저장 제거 - 저장 버튼으로 명시적 저장
+  };
+
+  const savePeriodTimes = () => {
+    if (!canEdit) {
+      setSavedMessage('설정을 수정할 권한이 없습니다.');
+      setTimeout(() => setSavedMessage(''), 3000);
+      return;
     }
+
+    if (!activeSession) {
+      setSavedMessage('활성 세션이 없습니다.');
+      setTimeout(() => setSavedMessage(''), 3000);
+      return;
+    }
+
+    const config: AttendanceConfig = {
+      semester,
+      grade,
+      class: classNum,
+      dayPeriodRanges: [],
+      periodSchedules,
+      sessionId: activeSession.id,
+    };
+    configStorage.save(config, activeSession.id);
+    
+    // 설정 변경 이벤트 발생
+    window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
+      detail: { sessionId: activeSession.id } 
+    }));
+    
+    setSavedMessage('교시 시간표가 저장되었습니다.');
+    setTimeout(() => setSavedMessage(''), 3000);
   };
 
 
@@ -624,8 +654,13 @@ export default function Settings() {
 
         <div className="period-config-container">
           <div className="period-range-section">
-            <div className="section-label">
+            <div className="section-label-with-button">
               <span>교시 범위</span>
+              {canEdit && (
+                <button onClick={savePeriodRange} className="save-section-btn">
+                  저장
+                </button>
+              )}
             </div>
             <div className="period-range-controls">
               {(() => {
@@ -669,8 +704,13 @@ export default function Settings() {
           </div>
 
           <div className="period-times-section">
-            <div className="section-label">
+            <div className="section-label-with-button">
               <span>교시 시간표</span>
+              {canEdit && (
+                <button onClick={savePeriodTimes} className="save-section-btn">
+                  저장
+                </button>
+              )}
             </div>
             <div className="period-list">
               {getCurrentPeriods().map(p => {

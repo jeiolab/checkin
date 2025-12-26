@@ -393,12 +393,9 @@ export const initializeSampleData = async () => {
     sessionStorage.save(defaultSessions);
   }
 
-  // 기본 관리자 계정 생성
+  // 기본 관리자 계정 생성 (없을 경우)
   const users = await userStorage.load();
   if (users.length === 0) {
-    const { hashPassword } = await import('./security');
-    const { format } = await import('date-fns');
-    
     const adminUser: User = {
       id: `admin-${Date.now()}`,
       name: '관리자',

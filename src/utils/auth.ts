@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import type { User, UserRole, Permission } from '../types';
 import { userStorage, currentUserStorage } from './storage';
-import { hashPassword, verifyPassword, verifyPasswordSync, sanitizeInput, isEncrypted } from './security';
+import { hashPassword, verifyPassword, verifyPasswordSync, isEncrypted } from './security';
 
 /**
  * 역할별 권한 매핑
@@ -40,63 +40,108 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
  * 사용자 로그인
  */
 export const login = async (emailOrName: string, password: string): Promise<User | null> => {
-  // 입력값 정제 (비밀번호는 sanitizeInput 사용하지 않음 - 특수문자 포함 가능)
-  const sanitizedEmailOrName = sanitizeInput(emailOrName.trim());
-  
-  if (!sanitizedEmailOrName || !password) {
-    return null;
-  }
-  
-  const users = await userStorage.load();
-  
-  // 사용자 찾기 (이메일 또는 이름으로) - 대소문자 구분 없이 비교
-  const user = users.find(u => {
-    // 이메일로 찾기
-    if (u.email) {
-      const userEmail = u.email.trim().toLowerCase();
-      const inputEmail = emailOrName.trim().toLowerCase();
-      const sanitizedUserEmail = sanitizeInput(u.email.trim()).toLowerCase();
-      const sanitizedInputEmail = sanitizedEmailOrName.toLowerCase();
-      
-      if (userEmail === inputEmail || sanitizedUserEmail === sanitizedInputEmail) {
-        return true;
-      }
+  try {
+    // 입력값 검증
+    const trimmedIdentifier = emailOrName.trim();
+    if (!trimmedIdentifier || !password) {
+      console.log('[LOGIN] 입력값 누락:', { identifier: !!trimmedIdentifier, password: !!password });
+      return null;
     }
     
-    // 이름으로 찾기
-    const userName = u.name.trim().toLowerCase();
-    const inputName = emailOrName.trim().toLowerCase();
-    const sanitizedUserName = sanitizeInput(u.name.trim()).toLowerCase();
-    const sanitizedInputName = sanitizedEmailOrName.toLowerCase();
+    // 사용자 목록 로드
+    const users = await userStorage.load();
+    console.log('[LOGIN] 로드된 사용자 수:', users.length);
     
-    return userName === inputName || sanitizedUserName === sanitizedInputName;
-  });
+    if (users.length === 0) {
+      console.log('[LOGIN] 사용자 없음');
+      return null;
+    }
+    
+    // 사용자 찾기 (이메일 또는 이름으로) - 대소문자 구분 없이 비교
+    const normalizedInput = trimmedIdentifier.toLowerCase();
+    const user = users.find(u => {
+      // 이메일로 찾기
+      if (u.email) {
+        const normalizedEmail = u.email.trim().toLowerCase();
+        if (normalizedEmail === normalizedInput) {
+          console.log('[LOGIN] 이메일로 사용자 찾음:', u.email);
+          return true;
+        }
+      }
+      
+      // 이름으로 찾기
+      const normalizedName = u.name.trim().toLowerCase();
+      if (normalizedName === normalizedInput) {
+        console.log('[LOGIN] 이름으로 사용자 찾음:', u.name);
+        return true;
+      }
+      
+      return false;
+    });
 
-  if (user) {
-    // 비밀번호 검증 (비동기) - 원본 비밀번호 사용
+    if (!user) {
+      console.log('[LOGIN] 사용자를 찾을 수 없음:', trimmedIdentifier);
+      console.log('[LOGIN] 등록된 사용자:', users.map(u => ({ name: u.name, email: u.email })));
+      return null;
+    }
+
+    console.log('[LOGIN] 사용자 발견:', { id: user.id, name: user.name, email: user.email });
+    console.log('[LOGIN] 비밀번호 해시 존재:', !!user.password);
+    console.log('[LOGIN] 비밀번호 해시 형식:', user.password ? user.password.substring(0, 30) : '없음');
+    
+    // 비밀번호 검증
+    if (!user.password) {
+      console.log('[LOGIN] 비밀번호가 없음');
+      return null;
+    }
+    
     let passwordValid = false;
-    if (user.password) {
-      if (user.password.startsWith('pbkdf2_sha256_10000_') || user.password.startsWith('pbkdf2_sha256_100000_')) {
-        // 새로운 해시 형식
+    
+    // 해시 형식에 따라 검증
+    if (user.password.startsWith('pbkdf2_sha256_100000_')) {
+      console.log('[LOGIN] 새로운 해시 형식으로 검증 시도');
+      try {
         passwordValid = await verifyPassword(password, user.password);
-      } else if (user.password.startsWith('hash_')) {
-        // 기존 해시 형식 (하위 호환성)
-        passwordValid = verifyPasswordSync(password, user.password);
-      } else {
-        // 평문 비밀번호 (마이그레이션 필요)
-        passwordValid = user.password === password;
+        console.log('[LOGIN] 비밀번호 검증 결과:', passwordValid);
+      } catch (error) {
+        console.error('[LOGIN] 비밀번호 검증 오류:', error);
+        passwordValid = false;
+      }
+    } else if (user.password.startsWith('pbkdf2_sha256_10000_')) {
+      console.log('[LOGIN] 이전 해시 형식으로 검증 시도');
+      try {
+        passwordValid = await verifyPassword(password, user.password);
+        console.log('[LOGIN] 비밀번호 검증 결과:', passwordValid);
+      } catch (error) {
+        console.error('[LOGIN] 비밀번호 검증 오류:', error);
+        passwordValid = false;
+      }
+    } else if (user.password.startsWith('hash_')) {
+      console.log('[LOGIN] 동기식 해시 형식으로 검증 시도');
+      passwordValid = verifyPasswordSync(password, user.password);
+      console.log('[LOGIN] 비밀번호 검증 결과:', passwordValid);
+    } else {
+      // 평문 비밀번호 (마이그레이션 필요)
+      console.log('[LOGIN] 평문 비밀번호로 검증 시도');
+      passwordValid = user.password === password;
+      console.log('[LOGIN] 비밀번호 검증 결과:', passwordValid);
+      
+      if (passwordValid) {
         // 즉시 해시로 변환
+        console.log('[LOGIN] 평문 비밀번호를 해시로 변환');
         user.password = await hashPassword(user.password);
         await userStorage.save(users);
       }
     }
     
     if (!passwordValid) {
+      console.log('[LOGIN] 비밀번호 검증 실패');
       return null;
     }
     
-    // 비밀번호가 평문이면 해시로 변환 (이미 위에서 처리됨)
+    console.log('[LOGIN] 로그인 성공');
     
+    // 마지막 로그인 시간 업데이트
     user.lastLogin = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
     await userStorage.save(users);
     
@@ -106,9 +151,10 @@ export const login = async (emailOrName: string, password: string): Promise<User
     await currentUserStorage.save(safeUser);
     
     return user;
+  } catch (error) {
+    console.error('[LOGIN] 로그인 중 오류:', error);
+    return null;
   }
-
-  return null;
 };
 
 /**

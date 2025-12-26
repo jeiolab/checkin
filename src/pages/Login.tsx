@@ -30,17 +30,26 @@ export default function Login() {
     }
 
     try {
+      console.log('[LOGIN PAGE] 로그인 시도:', { identifier: identifier.trim(), passwordLength: password.length });
+      
       // identifier는 sanitize하지만 password는 원본 그대로 전달 (특수문자 포함)
       const loginResult = await login(identifier.trim(), password);
+      
       if (loginResult) {
+        console.log('[LOGIN PAGE] 로그인 성공:', loginResult.name);
         navigate('/');
-        window.location.reload(); // 사용자 정보 갱신을 위해 새로고침
+        // 약간의 지연 후 새로고침 (상태 업데이트를 위해)
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
       } else {
-        setError('이름(또는 이메일) 또는 비밀번호가 올바르지 않습니다.');
+        console.log('[LOGIN PAGE] 로그인 실패');
+        setError('이름(또는 이메일) 또는 비밀번호가 올바르지 않습니다. 브라우저 콘솔을 확인하세요.');
         setPassword(''); // 보안을 위해 비밀번호 필드 초기화
       }
     } catch (err) {
-      setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.');
+      console.error('[LOGIN PAGE] 로그인 오류:', err);
+      setError(`로그인 중 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
       setPassword('');
     } finally {
       setLoading(false);

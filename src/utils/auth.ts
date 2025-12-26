@@ -49,14 +49,27 @@ export const login = async (emailOrName: string, password: string): Promise<User
   
   const users = await userStorage.load();
   
-  // 사용자 찾기 (이메일 또는 이름으로)
+  // 사용자 찾기 (이메일 또는 이름으로) - 대소문자 구분 없이 비교
   const user = users.find(u => {
+    // 이메일로 찾기
     if (u.email) {
-      const emailMatch = sanitizeInput(u.email.trim()) === sanitizedEmailOrName || u.email.trim() === emailOrName.trim();
-      if (emailMatch) return true;
+      const userEmail = u.email.trim().toLowerCase();
+      const inputEmail = emailOrName.trim().toLowerCase();
+      const sanitizedUserEmail = sanitizeInput(u.email.trim()).toLowerCase();
+      const sanitizedInputEmail = sanitizedEmailOrName.toLowerCase();
+      
+      if (userEmail === inputEmail || sanitizedUserEmail === sanitizedInputEmail) {
+        return true;
+      }
     }
-    const nameMatch = sanitizeInput(u.name.trim()) === sanitizedEmailOrName || u.name.trim() === emailOrName.trim();
-    return nameMatch;
+    
+    // 이름으로 찾기
+    const userName = u.name.trim().toLowerCase();
+    const inputName = emailOrName.trim().toLowerCase();
+    const sanitizedUserName = sanitizeInput(u.name.trim()).toLowerCase();
+    const sanitizedInputName = sanitizedEmailOrName.toLowerCase();
+    
+    return userName === inputName || sanitizedUserName === sanitizedInputName;
   });
 
   if (user) {

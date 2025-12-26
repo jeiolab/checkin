@@ -88,20 +88,26 @@ export const hashPassword = async (password: string, existingSalt?: string): Pro
  */
 export const verifyPassword = async (password: string, hashedPassword: string): Promise<boolean> => {
   try {
-    // 기존 해시 형식 확인
+    // 새로운 해시 형식 확인 (pbkdf2_sha256_100000_salt_hash)
     if (hashedPassword.startsWith('pbkdf2_sha256_100000_')) {
-      // 새로운 형식: pbkdf2_sha256_100000_salt_hash
+      // 형식: pbkdf2_sha256_100000_[base64_salt]_[hex_hash]
       const parts = hashedPassword.split('_');
       if (parts.length >= 5) {
-        const salt = parts.slice(3, -1).join('_'); // salt는 중간에 있을 수 있음
+        // salt는 4번째 인덱스부터 마지막 전까지 (마지막이 hash)
+        const saltBase64 = parts.slice(3, -1).join('_'); // salt는 base64로 인코딩되어 있음
         const storedHash = parts[parts.length - 1];
         
-        // 저장된 salt로 새 해시 생성
-        const newHash = await hashPassword(password, salt);
-        const newHashParts = newHash.split('_');
-        const newHashValue = newHashParts[newHashParts.length - 1];
-        
-        return newHashValue === storedHash;
+        try {
+          // 저장된 salt로 새 해시 생성
+          const newHash = await hashPassword(password, saltBase64);
+          const newHashParts = newHash.split('_');
+          const newHashValue = newHashParts[newHashParts.length - 1];
+          
+          return newHashValue === storedHash;
+        } catch (saltError) {
+          console.error('Salt parsing error:', saltError);
+          return false;
+        }
       }
     } else if (hashedPassword.startsWith('pbkdf2_sha256_10000_')) {
       // 이전 형식 (하위 호환성): 고정 salt 사용

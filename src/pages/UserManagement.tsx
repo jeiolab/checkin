@@ -12,7 +12,10 @@ export default function UserManagement() {
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showUserSelectModal, setShowUserSelectModal] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [selectedRole, setSelectedRole] = useState<UserRole>('teacher');
 
   useEffect(() => {
     const loadUser = async () => {
@@ -69,6 +72,82 @@ export default function UserManagement() {
     });
     return stats;
   }, [users]);
+
+  const handleAssignRole = async (userIds: string[], role: UserRole) => {
+    if (!canEdit) {
+      alert('권한을 부여할 권한이 없습니다.');
+      return;
+    }
+
+    if (userIds.length === 0) {
+      alert('사용자를 선택해주세요.');
+      return;
+    }
+
+    const roleLabel = getRoleLabel(role);
+    if (!confirm(`선택한 ${userIds.length}명의 사용자에게 "${roleLabel}" 역할을 부여하시겠습니까?`)) {
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    for (const userId of userIds) {
+      const user = users.find(u => u.id === userId);
+      if (!user) continue;
+
+      // 역할에 따른 추가 정보 설정
+      const updates: {
+        role: UserRole;
+        grade?: Grade;
+        class?: Class;
+        subject?: string;
+      } = {
+        role,
+      };
+
+      // 역할별 필수 정보 유지 또는 초기화
+      if (role === 'teacher') {
+        // 담임 교사는 학년/반 정보 필요 (기존 정보 유지)
+        if (user.grade && user.class) {
+          updates.grade = user.grade;
+          updates.class = user.class;
+        }
+      } else if (role === 'subject_teacher') {
+        // 교과 교사는 과목 정보 필요 (기존 정보 유지)
+        if (user.subject) {
+          updates.subject = user.subject;
+        }
+      } else if (role === 'student_monitor') {
+        // 학생 반장은 학년/반 정보 필요 (기존 정보 유지)
+        if (user.grade && user.class) {
+          updates.grade = user.grade;
+          updates.class = user.class;
+        }
+      }
+
+      const success = await updateUser(userId, updates);
+
+      if (success) {
+        successCount++;
+      } else {
+        failCount++;
+        errors.push(`${user.name}: 역할 업데이트 실패`);
+      }
+    }
+
+    await loadUsers();
+
+    if (failCount > 0) {
+      alert(`역할 부여 완료\n성공: ${successCount}명\n실패: ${failCount}명\n\n오류:\n${errors.join('\n')}`);
+    } else {
+      alert(`${successCount}명의 사용자에게 "${roleLabel}" 역할이 부여되었습니다.`);
+    }
+
+    setShowUserSelectModal(false);
+    setSelectedUserIds(new Set());
+  };
 
   const handleAddUser = async (userData: Omit<User, 'id' | 'createdAt'>) => {
     if (!canEdit) {
@@ -414,6 +493,42 @@ export default function UserManagement() {
         />
       )}
 
+      {showUserSelectModal && (
+        <UserSelectModal
+          allUsers={users}
+          currentUser={currentUser}
+          selectedUserIds={selectedUserIds}
+          onSelectUser={(userId) => {
+            const newSelected = new Set(selectedUserIds);
+            if (newSelected.has(userId)) {
+              newSelected.delete(userId);
+            } else {
+              newSelected.add(userId);
+            }
+            setSelectedUserIds(newSelected);
+          }}
+          onSelectAll={(selectAll) => {
+            if (selectAll) {
+              // 현재 사용자 제외하고 모든 사용자 선택
+              const allIds = users
+                .filter(u => u.id !== currentUser?.id)
+                .map(u => u.id);
+              setSelectedUserIds(new Set(allIds));
+            } else {
+              setSelectedUserIds(new Set());
+            }
+          }}
+          selectedRole={selectedRole}
+          onRoleChange={setSelectedRole}
+          onAssignRole={handleAssignRole}
+          onCancel={() => {
+            setShowUserSelectModal(false);
+            setSelectedUserIds(new Set());
+            setSelectedRole('teacher');
+          }}
+        />
+      )}
+
       {editingUser && (
         <UserForm
           user={editingUser}
@@ -422,6 +537,188 @@ export default function UserManagement() {
         />
       )}
 
+    </div>
+  );
+}
+
+// 사용자 선택 모달
+interface UserSelectModalProps {
+  allUsers: User[];
+  currentUser: User | null;
+  selectedUserIds: Set<string>;
+  onSelectUser: (userId: string) => void;
+  onSelectAll: (selectAll: boolean) => void;
+  selectedRole: UserRole;
+  onRoleChange: (role: UserRole) => void;
+  onAssignRole: (userIds: string[], role: UserRole) => Promise<void>;
+  onCancel: () => void;
+}
+
+function UserSelectModal({
+  allUsers,
+  currentUser,
+  selectedUserIds,
+  onSelectUser,
+  onSelectAll,
+  selectedRole,
+  onRoleChange,
+  onAssignRole,
+  onCancel,
+}: UserSelectModalProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all');
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const getRoleLabelLocal = (role: UserRole): string => {
+    switch (role) {
+      case 'admin': return '관리자';
+      case 'teacher': return '담임 교사';
+      case 'subject_teacher': return '교과 교사';
+      case 'student_monitor': return '학생 반장';
+      default: return role;
+    }
+  };
+
+  const filteredUsers = useMemo(() => {
+    return allUsers.filter(user => {
+      // 현재 사용자 제외
+      if (user.id === currentUser?.id) return false;
+      
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const nameMatch = user.name.toLowerCase().includes(query);
+        const emailMatch = user.email?.toLowerCase().includes(query);
+        const roleMatch = getRoleLabelLocal(user.role).toLowerCase().includes(query);
+        if (!nameMatch && !emailMatch && !roleMatch) return false;
+      }
+      if (filterRole !== 'all' && user.role !== filterRole) return false;
+      return true;
+    });
+  }, [allUsers, currentUser, searchQuery, filterRole]);
+
+  const selectableCount = filteredUsers.length;
+  const selectedCount = filteredUsers.filter(u => selectedUserIds.has(u.id)).length;
+  const allSelected = selectableCount > 0 && selectedCount === selectableCount;
+
+  const handleAssign = async () => {
+    if (selectedUserIds.size === 0) {
+      alert('사용자를 선택해주세요.');
+      return;
+    }
+
+    setIsAssigning(true);
+    try {
+      await onAssignRole(Array.from(selectedUserIds), selectedRole);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-content user-select-modal" onClick={(e) => e.stopPropagation()}>
+        <h3>사용자 선택 및 역할 부여</h3>
+        
+        <div className="user-select-controls">
+          <div className="search-box">
+            <Search size={18} />
+            <input
+              type="text"
+              placeholder="이름, 이메일 또는 역할로 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+          <select
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value as UserRole | 'all')}
+            className="filter-select"
+          >
+            <option value="all">전체 역할</option>
+            <option value="admin">관리자</option>
+            <option value="teacher">담임 교사</option>
+            <option value="subject_teacher">교과 교사</option>
+            <option value="student_monitor">학생 반장</option>
+          </select>
+        </div>
+
+        <div className="role-select-section">
+          <label>부여할 역할:</label>
+          <select
+            value={selectedRole}
+            onChange={(e) => onRoleChange(e.target.value as UserRole)}
+            className="role-select"
+          >
+            <option value="admin">관리자</option>
+            <option value="teacher">담임 교사</option>
+            <option value="subject_teacher">교과 교사</option>
+            <option value="student_monitor">학생 반장</option>
+          </select>
+        </div>
+
+        <div className="user-list-header">
+          <label className="select-all-checkbox">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={(e) => onSelectAll(e.target.checked)}
+            />
+            <span>전체 선택 ({selectedCount}/{selectableCount})</span>
+          </label>
+        </div>
+
+        <div className="user-list-content">
+          {filteredUsers.length === 0 ? (
+            <div className="empty-state">
+              <Users size={48} />
+              <p>선택할 수 있는 사용자가 없습니다.</p>
+            </div>
+          ) : (
+            <div className="user-list">
+              {filteredUsers.map(user => {
+                const isSelected = selectedUserIds.has(user.id);
+                
+                return (
+                  <div
+                    key={user.id}
+                    className={`user-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => onSelectUser(user.id)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => onSelectUser(user.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="user-info">
+                      <span className="user-name">{user.name}</span>
+                      {user.email && <span className="user-email">{user.email}</span>}
+                      <span className={`current-role role-${user.role}`}>
+                        현재: {getRoleLabelLocal(user.role)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-actions">
+          <button type="button" onClick={onCancel} className="cancel-btn" disabled={isAssigning}>
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleAssign}
+            className="save-btn"
+            disabled={selectedUserIds.size === 0 || isAssigning}
+          >
+            {isAssigning ? '역할 부여 중...' : `선택한 ${selectedUserIds.size}명에게 역할 부여`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

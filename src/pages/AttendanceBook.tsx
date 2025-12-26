@@ -50,9 +50,21 @@ export default function AttendanceBook() {
     const dayType = getDayType(date, schedules, holidays);
     console.log('🔄 [loadPeriodsForDate] 날짜 유형', dayType);
     
-    if (config && config.periodSchedules && config.periodSchedules.length > 0) {
+    // 전역 교시 시간 설정 우선 사용
+    const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+    let periodSchedulesToUse = config?.periodSchedules;
+    
+    if (globalPeriodSchedules && globalPeriodSchedules.length > 0) {
+      console.log('🔄 [loadPeriodsForDate] 전역 교시 시간 설정 사용', globalPeriodSchedules);
+      periodSchedulesToUse = globalPeriodSchedules;
+    } else if (config && config.periodSchedules && config.periodSchedules.length > 0) {
+      console.log('🔄 [loadPeriodsForDate] 세션별 교시 시간 설정 사용', config.periodSchedules);
+      periodSchedulesToUse = config.periodSchedules;
+    }
+    
+    if (periodSchedulesToUse && periodSchedulesToUse.length > 0) {
       // 공통 설정 사용 (학년별 설정 제거)
-      const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
+      const schedule = periodSchedulesToUse.find(ps => ps.dayType === dayType && !ps.grade);
       console.log('🔄 [loadPeriodsForDate] 찾은 설정', schedule);
       
       if (schedule) {

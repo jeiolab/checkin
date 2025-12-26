@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import type { PendingAttendance, AttendanceStatus, User } from '../types';
+import type { PendingAttendance, AttendanceStatus } from '../types';
 import { pendingAttendanceStorage, attendanceStorage, sessionStorage } from './storage';
 import { getActiveSession, getSessionForDate } from './session';
 

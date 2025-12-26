@@ -1,7 +1,5 @@
-import { format } from 'date-fns';
 import type { Student, AttendanceRecord, AttendanceConfig, SemesterSchedule, Session, WeeklyReport, User, PendingAttendance } from '../types';
 import { createSession } from './session';
-import { hashPassword, encryptData, decryptData, isEncrypted } from './security';
 
 const STORAGE_KEYS = {
   STUDENTS: 'neungju_students',
@@ -20,6 +18,20 @@ const STORAGE_KEYS = {
 
 // 안전한 JSON 파싱 (보안 강화)
 const safeJsonParse = <T>(data: string, defaultValue: T): T => {
+  try {
+    if (!data || typeof data !== 'string') return defaultValue;
+    const parsed = JSON.parse(data);
+    // 기본 타입 검증
+    if (typeof parsed !== 'object' || parsed === null) return defaultValue;
+    return parsed as T;
+  } catch (error) {
+    console.error('JSON parse error:', error);
+    return defaultValue;
+  }
+};
+
+// null을 허용하는 안전한 JSON 파싱
+const safeJsonParseNullable = <T>(data: string, defaultValue: T | null): T | null => {
   try {
     if (!data || typeof data !== 'string') return defaultValue;
     const parsed = JSON.parse(data);
@@ -119,11 +131,11 @@ export const configStorage = {
         // 세션별로 로드
         const key = `${STORAGE_KEYS.ATTENDANCE_CONFIG}_${sessionId}`;
         const data = localStorage.getItem(key);
-        return data ? safeJsonParse<AttendanceConfig>(data, null) : null;
+        return data ? safeJsonParseNullable<AttendanceConfig>(data, null) : null;
       } else {
         // 기본 로드 (하위 호환성)
         const data = localStorage.getItem(STORAGE_KEYS.ATTENDANCE_CONFIG);
-        return data ? safeJsonParse<AttendanceConfig>(data, null) : null;
+        return data ? safeJsonParseNullable<AttendanceConfig>(data, null) : null;
       }
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -246,7 +258,7 @@ export const archivedConfigsStorage = {
     try {
       const key = `${STORAGE_KEYS.ARCHIVED_CONFIGS}_${sessionId}`;
       const data = localStorage.getItem(key);
-      return data ? safeJsonParse<AttendanceConfig>(data, null) : null;
+      return data ? safeJsonParseNullable<AttendanceConfig>(data, null) : null;
     } catch (error) {
       console.error('Failed to load archived config:', error);
       return null;
@@ -261,7 +273,10 @@ export const archivedConfigsStorage = {
           const sessionId = key.replace(`${STORAGE_KEYS.ARCHIVED_CONFIGS}_`, '');
           const data = localStorage.getItem(key);
           if (data) {
-            archived[sessionId] = safeJsonParse<AttendanceConfig>(data, null) as AttendanceConfig;
+            const config = safeJsonParseNullable<AttendanceConfig>(data, null);
+            if (config) {
+              archived[sessionId] = config;
+            }
           }
         }
       }
@@ -444,7 +459,7 @@ export const currentUserStorage = {
       if (!data) return null;
       
       // 성능 최적화: 암호화 비활성화
-      return safeJsonParse<User>(data, null);
+      return safeJsonParseNullable<User>(data, null);
     } catch (error) {
       console.error('Failed to load current user:', error);
       return null;

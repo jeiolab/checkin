@@ -10,6 +10,7 @@ export interface ExcelStudentRow {
   홈스쿨링시작일?: string;
   홈스쿨링종료일?: string;
   귀가?: string | boolean;
+  우정반?: string | boolean;
 }
 
 /**
@@ -81,7 +82,7 @@ export const parseExcelFile = (file: File): Promise<Student[]> => {
               row.귀가 === 'y' || 
               row.귀가 === '예' ||
               row.귀가 === 'true' ||
-              String(row.귀가).toLowerCase() === 'true';
+              (typeof row.귀가 === 'string' && row.귀가.toLowerCase() === 'true');
 
             // 우정반 여부
             const isFriendshipClass = 
@@ -90,7 +91,7 @@ export const parseExcelFile = (file: File): Promise<Student[]> => {
               row.우정반 === 'y' || 
               row.우정반 === '예' ||
               row.우정반 === 'true' ||
-              String(row.우정반).toLowerCase() === 'true';
+              (row.우정반 && String(row.우정반).toLowerCase() === 'true');
 
             const student: Student = {
               id: `${grade}-${classNum}-${number}`,

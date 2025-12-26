@@ -1,4 +1,4 @@
-import { format, parseISO, addDays, getDay, isWeekend } from 'date-fns';
+import { format, parseISO, addDays, getDay } from 'date-fns';
 
 /**
  * 한국의 고정 공휴일 목록 (YYYY-MM-DD 형식)

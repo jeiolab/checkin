@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, User, Lock, Mail, Eye, EyeOff } from 'lucide-react';
+import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { login } from '../utils/auth';
 import { sanitizeInput } from '../utils/security';
 import './Login.css';

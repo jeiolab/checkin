@@ -35,7 +35,7 @@ export const isHomeSchoolPeriod = (student: Student, date: string): boolean => {
 };
 
 // 학생이 우정반인지 확인
-export const isFriendshipClassPeriod = (student: Student, date: string): boolean => {
+export const isFriendshipClassPeriod = (student: Student): boolean => {
   return student.isFriendshipClass === true;
 };
 

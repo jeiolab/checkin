@@ -85,7 +85,7 @@ export default function ChangePassword() {
       }
 
       // 비밀번호 업데이트
-      const updatedUsers = users.map(u => {
+      const updatedUsers = await Promise.all(users.map(async u => {
         if (u.id === user.id) {
           return {
             ...u,
@@ -93,7 +93,7 @@ export default function ChangePassword() {
           };
         }
         return u;
-      });
+      }));
 
       await userStorage.save(updatedUsers);
       setSuccess(true);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, getYear, getMonth } from 'date-fns';
 import { CheckSquare, Trash2, AlertCircle, CheckCircle2, XCircle, Printer, Eye, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { studentStorage, attendanceStorage, configStorage, semesterScheduleStorage, holidayStorage, sessionStorage } from '../utils/storage';
@@ -56,7 +56,7 @@ export default function AttendanceBook() {
 
   // 설정 변경 이벤트 리스너 추가
   useEffect(() => {
-    const handleConfigUpdate = (event: CustomEvent) => {
+    const handleConfigUpdate = () => {
       // 설정이 변경되면 현재 날짜의 교시 시간표 다시 로드
       if (schedules.length > 0) {
         const sessions = sessionStorage.load();
@@ -554,7 +554,10 @@ export default function AttendanceBook() {
     attendanceStorage.save(updatedRecords, sessionId);
   };
 
-  const resetAttendanceForDate = () => {
+  // 날짜별 출석 초기화 함수 (현재 사용되지 않음)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // @ts-ignore
+  const _resetAttendanceForDate = () => {
     if (!canEditAttendance(currentUser)) {
       alert('출석을 초기화할 권한이 없습니다.');
       return;
@@ -1064,7 +1067,7 @@ export default function AttendanceBook() {
             <tbody>
               {students.map(student => {
                 const isHomeSchoolToday = isHomeSchoolPeriod(student, selectedDate);
-                const isFriendshipClassToday = isFriendshipClassPeriod(student, selectedDate);
+                const isFriendshipClassToday = isFriendshipClassPeriod(student);
                 return (
                 <tr key={student.id}>
                   <td className="student-col">{student.number}</td>
@@ -1168,7 +1171,7 @@ export default function AttendanceBook() {
                     <tbody>
                       {students.map(student => {
                         const isHomeSchoolToday = isHomeSchoolPeriod(student, selectedDate);
-                        const isFriendshipClassToday = isFriendshipClassPeriod(student, selectedDate);
+                        const isFriendshipClassToday = isFriendshipClassPeriod(student);
                         return (
                           <tr key={student.id}>
                             <td className="student-col">{student.number}</td>

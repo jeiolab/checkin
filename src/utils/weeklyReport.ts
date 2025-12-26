@@ -1,4 +1,4 @@
-import { startOfWeek, endOfWeek, format, parseISO, isWithinInterval, subWeeks, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, getDay } from 'date-fns';
+import { startOfWeek, endOfWeek, format, parseISO, subWeeks, subMonths, startOfMonth, endOfMonth, addDays, differenceInDays, getDay } from 'date-fns';
 import type { Student, AttendanceRecord, GradeWeeklyStats, ClassWeeklyStats, WeeklyReport, WeeklyInsight, Grade, Class, PriorityAlert, PatternAnalysis, HomeSchoolAlert } from '../types';
 import { studentStorage, attendanceStorage, sessionStorage } from './storage';
 import { getActiveSession, getSessionForDate } from './session';
@@ -259,7 +259,7 @@ const generateInsights = (
   const insights: WeeklyInsight[] = [];
   
   // 반별 분석
-  Object.entries(classStats).forEach(([classKey, stats]) => {
+  Object.entries(classStats).forEach(([_classKey, stats]) => {
     const { grade, class: classNum, previousWeekStats, previousMonthStats } = stats;
     
     // 전주 대비 지각률 변화
@@ -329,7 +329,7 @@ const generateInsights = (
   });
   
   // 학년별 분석
-  Object.entries(gradeStats).forEach(([gradeStr, stats]) => {
+  Object.entries(gradeStats).forEach(([, stats]) => {
     if (stats.attendanceRate < 85) {
       insights.push({
         type: 'info',
@@ -359,7 +359,7 @@ const generatePriorityAlerts = (
   weekRecords: AttendanceRecord[],
   prevWeekRecords: AttendanceRecord[],
   weekStart: Date,
-  weekEnd: Date
+  _weekEnd: Date
 ): PriorityAlert[] => {
   const alerts: PriorityAlert[] = [];
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
@@ -503,7 +503,7 @@ const generatePriorityAlerts = (
 const generatePatternAnalysis = (
   students: Student[],
   weekRecords: AttendanceRecord[],
-  weekStart: Date
+  _weekStart: Date
 ): PatternAnalysis => {
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
   const dayOfWeekPattern = dayNames.slice(1, 6).map((dayName, index) => {
@@ -583,10 +583,10 @@ const generatePatternAnalysis = (
  */
 const generateHomeSchoolAlerts = (
   students: Student[],
-  weekRecords: AttendanceRecord[],
+  _weekRecords: AttendanceRecord[],
   allRecords: AttendanceRecord[],
-  weekStart: Date,
-  weekEnd: Date
+  _weekStart: Date,
+  _weekEnd: Date
 ): HomeSchoolAlert[] => {
   const alerts: HomeSchoolAlert[] = [];
   const today = new Date();

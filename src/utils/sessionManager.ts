@@ -1,4 +1,3 @@
-import { format } from 'date-fns';
 import { sessionStorage, attendanceStorage, configStorage, archivedRecordsStorage, archivedConfigsStorage } from './storage';
 import { getActiveSession, archiveSession, sortSessions, createSession } from './session';
 import type { Session, AttendanceRecord, AttendanceConfig } from '../types';

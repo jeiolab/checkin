@@ -215,7 +215,7 @@ export default function AttendanceBook() {
       window.removeEventListener('semesterScheduleUpdated', handleSemesterScheduleUpdate);
       window.removeEventListener('sessionUpdated', handleSessionUpdate);
     };
-  }, [selectedDate, schedules, grade, semester]);
+  }, [selectedDate, schedules, grade, semester, loadPeriodsForDate]);
 
   const loadPendingAttendances = () => {
     const pending = getPendingAttendances();

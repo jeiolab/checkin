@@ -210,12 +210,17 @@ export const getCurrentUser = async (): Promise<User | null> => {
 
     console.log('✅ [GET_USER] 사용자 확인:', user.email);
 
-    // 프로필 가져오기
-    let { data: profile } = await supabase
+    // 프로필 가져오기 (RLS 오류 시 무시하고 user_metadata 사용)
+    let { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
+    
+    // RLS 오류가 발생해도 계속 진행 (user_metadata 사용)
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.warn('⚠️ [GET_USER] 프로필 조회 오류 (무시하고 계속):', profileError.message);
+    }
 
     const metadata: UserMetadata = {
       name: profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || '사용자',

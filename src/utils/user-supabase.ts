@@ -8,28 +8,30 @@ import { format } from 'date-fns';
 
 /**
  * 모든 사용자 가져오기 (관리자만)
+ * Supabase의 user_profiles 테이블에서 모든 사용자 정보를 가져옵니다
  */
 export const getAllUsers = async (): Promise<User[]> => {
   try {
+    console.log('[SUPABASE USERS] 모든 사용자 조회 시작');
+    
     const { data: profiles, error } = await supabase
       .from('user_profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      // 개발 모드에서만 오류 로그 출력
-      if (import.meta.env.DEV) {
-        console.error('[SUPABASE USERS] 사용자 목록 조회 오류:', error.message);
-      }
+      console.error('[SUPABASE USERS] 사용자 목록 조회 오류:', error.message, error);
       return [];
     }
+
+    console.log('[SUPABASE USERS] 조회된 사용자 수:', profiles?.length || 0);
 
     // 프로필에서 이메일 정보 가져오기 (admin API는 클라이언트에서 사용 불가)
     const users: User[] = (profiles || []).map(profile => ({
       id: profile.id,
-      name: profile.name,
+      name: profile.name || '이름 없음',
       email: profile.email || '',
-      role: profile.role as UserRole,
+      role: (profile.role || 'teacher') as UserRole,
       grade: profile.grade as Grade | undefined,
       class: profile.class as Class | undefined,
       subject: profile.subject || undefined,
@@ -38,11 +40,10 @@ export const getAllUsers = async (): Promise<User[]> => {
       lastLogin: profile.updated_at || undefined,
     }));
 
+    console.log('[SUPABASE USERS] 변환된 사용자 수:', users.length);
     return users;
   } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류');
-    }
+    console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류', error);
     return [];
   }
 };

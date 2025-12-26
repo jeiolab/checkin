@@ -41,7 +41,9 @@ export default function UserManagement() {
   }, []);
 
   const loadUsers = async () => {
+    console.log('[USER MANAGEMENT] 사용자 목록 로드 시작');
     const allUsers = await getAllUsers();
+    console.log('[USER MANAGEMENT] 로드된 사용자 수:', allUsers.length);
     setUsers(allUsers);
   };
 
@@ -499,6 +501,7 @@ export default function UserManagement() {
           currentUser={currentUser}
           selectedUserIds={selectedUserIds}
           onSelectUser={(userId) => {
+            console.log('[USER MANAGEMENT] 사용자 선택:', userId);
             const newSelected = new Set(selectedUserIds);
             if (newSelected.has(userId)) {
               newSelected.delete(userId);
@@ -508,20 +511,26 @@ export default function UserManagement() {
             setSelectedUserIds(newSelected);
           }}
           onSelectAll={(selectAll) => {
+            console.log('[USER MANAGEMENT] 전체 선택:', selectAll);
             if (selectAll) {
               // 현재 사용자 제외하고 모든 사용자 선택
               const allIds = users
                 .filter(u => u.id !== currentUser?.id)
                 .map(u => u.id);
+              console.log('[USER MANAGEMENT] 선택된 사용자 ID:', Array.from(allIds));
               setSelectedUserIds(new Set(allIds));
             } else {
               setSelectedUserIds(new Set());
             }
           }}
           selectedRole={selectedRole}
-          onRoleChange={setSelectedRole}
+          onRoleChange={(role) => {
+            console.log('[USER MANAGEMENT] 역할 변경:', role);
+            setSelectedRole(role);
+          }}
           onAssignRole={handleAssignRole}
           onCancel={() => {
+            console.log('[USER MANAGEMENT] 모달 취소');
             setShowUserSelectModal(false);
             setSelectedUserIds(new Set());
             setSelectedRole('teacher');

@@ -136,7 +136,6 @@ export const createUser = async (
       if (profileError.code === '23505' || profileError.message.includes('duplicate') || profileError.message.includes('already exists')) {
         console.log('[SUPABASE USERS] 프로필이 이미 존재함 (트리거가 생성한 것으로 추정)');
       } else {
-        const errorMessage = `프로필 생성 오류: ${profileError.message}`;
         console.error('[SUPABASE USERS] 프로필 생성 오류:', profileError.message, profileError);
         // 프로필 생성 실패해도 사용자는 생성됨 (트리거가 생성할 수 있음)
         // 하지만 명시적으로 에러를 반환하지 않고 경고만 표시

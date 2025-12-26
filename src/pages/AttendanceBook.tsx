@@ -71,49 +71,9 @@ export default function AttendanceBook() {
       // 설정 다시 로드
       const config = configStorage.load(targetSessionId);
       
-      if (config && config.periodSchedules && config.periodSchedules.length > 0) {
-        // 설정이 있으면 교시 시간표 로드
-        const holidays = holidayStorage.load();
-        const dayType = getDayType(selectedDate, currentSchedules, holidays);
-        const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
-        
-        if (schedule) {
-          // 교시 시간표 업데이트
-          setPeriods(schedule.periods);
-          const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
-          setStartPeriod(schedule.startPeriod ?? 1);
-          setEndPeriod(schedule.endPeriod ?? maxPeriod);
-        } else {
-          // 해당 dayType의 설정이 없으면 기본값 사용
-          const defaultPeriods: Period[] = [
-            { period: 1, startTime: '08:30', endTime: '09:20' },
-            { period: 2, startTime: '09:30', endTime: '10:20' },
-            { period: 3, startTime: '10:30', endTime: '11:20' },
-            { period: 4, startTime: '11:30', endTime: '12:20' },
-            { period: 5, startTime: '13:20', endTime: '14:10' },
-            { period: 6, startTime: '14:20', endTime: '15:10' },
-            { period: 7, startTime: '15:20', endTime: '16:10' },
-            { period: 8, startTime: '16:20', endTime: '17:10' },
-            { period: 9, startTime: '19:00', endTime: '19:50' },
-            { period: 10, startTime: '20:00', endTime: '20:50' },
-            { period: 11, startTime: '21:00', endTime: '21:50' },
-            { period: 12, startTime: '22:00', endTime: '22:50' },
-          ];
-          setPeriods(defaultPeriods);
-          if (dayType === 'weekend') {
-            setStartPeriod(1);
-            setEndPeriod(8);
-          } else if (dayType === 'holiday') {
-            setStartPeriod(1);
-            setEndPeriod(6);
-          } else if (dayType === 'vacation') {
-            setStartPeriod(1);
-            setEndPeriod(4);
-          } else {
-            setStartPeriod(1);
-            setEndPeriod(12);
-          }
-        }
+      // loadPeriodsForDate 함수 사용 (일관성 유지)
+      if (config) {
+        loadPeriodsForDate(selectedDate, config, currentSchedules);
       } else if (currentSchedules.length > 0) {
         // 설정이 없으면 기본값으로 다시 설정
         const holidays = holidayStorage.load();
@@ -335,11 +295,11 @@ export default function AttendanceBook() {
     }
   };
 
-  const loadPeriodsForDate = useCallback((date: string, config: AttendanceConfig, schedules: SemesterSchedule[]) => {
+  const loadPeriodsForDate = useCallback((date: string, config: AttendanceConfig | null, schedules: SemesterSchedule[]) => {
     const holidays = holidayStorage.load();
     const dayType = getDayType(date, schedules, holidays);
     
-    if (config.periodSchedules && config.periodSchedules.length > 0) {
+    if (config && config.periodSchedules && config.periodSchedules.length > 0) {
       // 공통 설정 사용 (학년별 설정 제거)
       const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
       
@@ -355,7 +315,7 @@ export default function AttendanceBook() {
     }
     
     // 하위 호환성: defaultPeriods 사용
-    if (config.defaultPeriods) {
+    if (config?.defaultPeriods) {
       setPeriods(config.defaultPeriods);
       const maxPeriod = Math.max(...config.defaultPeriods.map(p => p.period));
       setStartPeriod(1);

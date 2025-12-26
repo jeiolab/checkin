@@ -51,37 +51,28 @@ FOR INSERT
 TO authenticated
 WITH CHECK (auth.uid() = id);
 
--- 관리자는 모든 프로필 읽기 가능
+-- 관리자는 모든 프로필 읽기 가능 (무한 재귀 방지를 위해 auth.users 참조)
 CREATE POLICY "Admins can read all profiles"
 ON user_profiles
 FOR SELECT
 TO authenticated
 USING (
-  EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid()
-    AND role = 'admin'
-  )
+  (auth.jwt() ->> 'user_metadata')::jsonb ->> 'role' = 'admin'
+  OR (SELECT (raw_user_meta_data->>'role') FROM auth.users WHERE id = auth.uid()) = 'admin'
 );
 
--- 관리자는 모든 프로필 업데이트 가능
+-- 관리자는 모든 프로필 업데이트 가능 (무한 재귀 방지를 위해 auth.users 참조)
 CREATE POLICY "Admins can update all profiles"
 ON user_profiles
 FOR UPDATE
 TO authenticated
 USING (
-  EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid()
-    AND role = 'admin'
-  )
+  (auth.jwt() ->> 'user_metadata')::jsonb ->> 'role' = 'admin'
+  OR (SELECT (raw_user_meta_data->>'role') FROM auth.users WHERE id = auth.uid()) = 'admin'
 )
 WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid()
-    AND role = 'admin'
-  )
+  (auth.jwt() ->> 'user_metadata')::jsonb ->> 'role' = 'admin'
+  OR (SELECT (raw_user_meta_data->>'role') FROM auth.users WHERE id = auth.uid()) = 'admin'
 );
 
 -- RLS 활성화 확인

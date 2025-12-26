@@ -40,36 +40,38 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
  * 사용자 로그인
  */
 export const login = async (emailOrName: string, password: string): Promise<User | null> => {
-  // 입력값 정제
-  const sanitizedEmailOrName = sanitizeInput(emailOrName);
-  const sanitizedPassword = sanitizeInput(password);
+  // 입력값 정제 (비밀번호는 sanitizeInput 사용하지 않음 - 특수문자 포함 가능)
+  const sanitizedEmailOrName = sanitizeInput(emailOrName.trim());
   
-  if (!sanitizedEmailOrName || !sanitizedPassword) {
+  if (!sanitizedEmailOrName || !password) {
     return null;
   }
   
   const users = await userStorage.load();
+  
+  // 사용자 찾기 (이메일 또는 이름으로)
   const user = users.find(u => {
-    const emailMatch = u.email && sanitizeInput(u.email) === sanitizedEmailOrName;
-    const nameMatch = sanitizeInput(u.name) === sanitizedEmailOrName;
-    
-    if (!emailMatch && !nameMatch) return false;
-    return true; // 비밀번호 검증은 아래에서 비동기로 수행
+    if (u.email) {
+      const emailMatch = sanitizeInput(u.email.trim()) === sanitizedEmailOrName || u.email.trim() === emailOrName.trim();
+      if (emailMatch) return true;
+    }
+    const nameMatch = sanitizeInput(u.name.trim()) === sanitizedEmailOrName || u.name.trim() === emailOrName.trim();
+    return nameMatch;
   });
 
   if (user) {
-    // 비밀번호 검증 (비동기)
+    // 비밀번호 검증 (비동기) - 원본 비밀번호 사용
     let passwordValid = false;
     if (user.password) {
-      if (user.password.startsWith('pbkdf2_sha256_10000_') || user.password.startsWith('pbkdf2_sha256_100000_') || user.password.startsWith('pbkdf2_sha256_100000_')) {
+      if (user.password.startsWith('pbkdf2_sha256_10000_') || user.password.startsWith('pbkdf2_sha256_100000_')) {
         // 새로운 해시 형식
-        passwordValid = await verifyPassword(sanitizedPassword, user.password);
+        passwordValid = await verifyPassword(password, user.password);
       } else if (user.password.startsWith('hash_')) {
         // 기존 해시 형식 (하위 호환성)
-        passwordValid = verifyPasswordSync(sanitizedPassword, user.password);
+        passwordValid = verifyPasswordSync(password, user.password);
       } else {
         // 평문 비밀번호 (마이그레이션 필요)
-        passwordValid = user.password === sanitizedPassword;
+        passwordValid = user.password === password;
         // 즉시 해시로 변환
         user.password = await hashPassword(user.password);
         await userStorage.save(users);
@@ -80,11 +82,7 @@ export const login = async (emailOrName: string, password: string): Promise<User
       return null;
     }
     
-    // 비밀번호가 평문이면 해시로 변환
-    if (user.password && !user.password.startsWith('pbkdf2_sha256_') && !user.password.startsWith('hash_')) {
-      user.password = await hashPassword(user.password);
-      await userStorage.save(users);
-    }
+    // 비밀번호가 평문이면 해시로 변환 (이미 위에서 처리됨)
     
     user.lastLogin = format(new Date(), 'yyyy-MM-dd HH:mm:ss');
     await userStorage.save(users);

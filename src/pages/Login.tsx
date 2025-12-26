@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { login } from '../utils/auth';
-import { sanitizeInput } from '../utils/security';
 import './Login.css';
 
 export default function Login() {
@@ -31,7 +30,8 @@ export default function Login() {
     }
 
     try {
-      const loginResult = await login(sanitizeInput(identifier.trim()), password);
+      // identifier는 sanitize하지만 password는 원본 그대로 전달 (특수문자 포함)
+      const loginResult = await login(identifier.trim(), password);
       if (loginResult) {
         navigate('/');
         window.location.reload(); // 사용자 정보 갱신을 위해 새로고침

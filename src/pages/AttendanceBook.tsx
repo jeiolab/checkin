@@ -63,7 +63,16 @@ export default function AttendanceBook() {
         // startPeriod와 endPeriod가 명시적으로 설정되어 있으면 사용, 없으면 기본값
         const newStartPeriod = schedule.startPeriod ?? 1;
         const newEndPeriod = schedule.endPeriod ?? maxPeriod;
-        console.log('🔄 [loadPeriodsForDate] 교시 범위 업데이트', { newStartPeriod, newEndPeriod });
+        console.log('🔄 [loadPeriodsForDate] 교시 범위 업데이트', { 
+          newStartPeriod, 
+          newEndPeriod,
+          scheduleStartPeriod: schedule.startPeriod,
+          scheduleEndPeriod: schedule.endPeriod,
+          hasStartPeriod: schedule.startPeriod !== undefined,
+          hasEndPeriod: schedule.endPeriod !== undefined,
+          maxPeriod,
+          dayType
+        });
         setStartPeriod(newStartPeriod);
         setEndPeriod(newEndPeriod);
         return;

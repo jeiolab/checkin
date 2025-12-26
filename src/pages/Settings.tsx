@@ -94,11 +94,28 @@ export default function Settings() {
             return rest;
           });
         
+        // 주중 설정 확인
+        const weekdayBefore = cleanedSchedules.find(ps => ps.dayType === 'weekday');
+        if (weekdayBefore) {
+          console.log('📥 [설정 로드] 주중(weekday) 로드 전:', {
+            startPeriod: weekdayBefore.startPeriod,
+            endPeriod: weekdayBefore.endPeriod,
+            hasStartPeriod: weekdayBefore.startPeriod !== undefined,
+            hasEndPeriod: weekdayBefore.endPeriod !== undefined
+          });
+        }
+        
         // 각 dayType별로 하나만 유지 (없으면 기본값 생성)
         const dayTypes: DayType[] = ['weekday', 'weekend', 'holiday', 'vacation'];
         const finalSchedules: PeriodSchedule[] = dayTypes.map(dayType => {
           const existing = cleanedSchedules.find(ps => ps.dayType === dayType);
           if (existing) {
+            console.log(`📥 [설정 로드] ${dayType} 설정 발견:`, {
+              startPeriod: existing.startPeriod,
+              endPeriod: existing.endPeriod,
+              hasStartPeriod: existing.startPeriod !== undefined,
+              hasEndPeriod: existing.endPeriod !== undefined
+            });
             return existing;
           }
           // 기본값 생성
@@ -126,15 +143,33 @@ export default function Settings() {
           };
         });
         
+        // 주중 설정 확인
+        const weekdayAfter = finalSchedules.find(ps => ps.dayType === 'weekday');
+        if (weekdayAfter) {
+          console.log('📥 [설정 로드] 주중(weekday) 로드 후:', {
+            startPeriod: weekdayAfter.startPeriod,
+            endPeriod: weekdayAfter.endPeriod,
+            hasStartPeriod: weekdayAfter.startPeriod !== undefined,
+            hasEndPeriod: weekdayAfter.endPeriod !== undefined
+          });
+        }
+        
         setPeriodSchedules(finalSchedules);
         
-        // 정리된 설정 저장
+        // 정리된 설정 저장 (endPeriod가 없으면 저장하지 않음 - 기존 값 유지)
         if (activeSession) {
           const cleanedConfig: AttendanceConfig = {
             ...config,
             periodSchedules: finalSchedules,
           };
-          configStorage.save(cleanedConfig, activeSession.id);
+          // endPeriod가 있는 경우에만 저장 (기존 설정 유지)
+          const hasAllEndPeriods = finalSchedules.every(ps => ps.endPeriod !== undefined);
+          if (hasAllEndPeriods) {
+            console.log('📥 [설정 로드] 모든 endPeriod가 있음 - 저장');
+            configStorage.save(cleanedConfig, activeSession.id);
+          } else {
+            console.warn('⚠️ [설정 로드] 일부 endPeriod가 없음 - 저장하지 않음');
+          }
         }
       } else if (config.defaultPeriods) {
         // 기존 데이터 마이그레이션
@@ -212,9 +247,17 @@ export default function Settings() {
   };
 
   const updatePeriodRange = (field: 'startPeriod' | 'endPeriod', value: number) => {
+    console.log('🔧 [설정] 교시 범위 업데이트', { field, value, selectedDayType });
     const updated = periodSchedules.map(ps => {
       if (ps.dayType === selectedDayType && !ps.grade) {
-        return { ...ps, [field]: value };
+        const newSchedule = { ...ps, [field]: value };
+        console.log('🔧 [설정] 업데이트된 설정', { 
+          dayType: ps.dayType, 
+          [field]: value,
+          startPeriod: newSchedule.startPeriod,
+          endPeriod: newSchedule.endPeriod
+        });
+        return newSchedule;
       }
       return ps;
     });
@@ -262,17 +305,29 @@ export default function Settings() {
     };
     
     try {
-      console.log('💾 [설정 저장] 시작', { sessionId: activeSession.id, periodSchedules });
+      console.log('💾 [설정 저장] 시작', { sessionId: activeSession.id });
+      console.log('💾 [설정 저장] periodSchedules 전체:', periodSchedules);
       
       // 주중 설정 확인
       const weekdaySchedule = periodSchedules.find(ps => ps.dayType === 'weekday' && !ps.grade);
       if (weekdaySchedule) {
         console.log('💾 [설정 저장] 주중(weekday) 저장 전:', {
-          startPeriod: weekdaySchedule.startPeriod ?? 1,
-          endPeriod: weekdaySchedule.endPeriod ?? Math.max(...weekdaySchedule.periods.map(p => p.period)),
-          periodsCount: weekdaySchedule.periods.length
+          startPeriod: weekdaySchedule.startPeriod,
+          endPeriod: weekdaySchedule.endPeriod,
+          hasStartPeriod: weekdaySchedule.startPeriod !== undefined,
+          hasEndPeriod: weekdaySchedule.endPeriod !== undefined,
+          periodsCount: weekdaySchedule.periods.length,
+          maxPeriod: Math.max(...weekdaySchedule.periods.map(p => p.period))
         });
+      } else {
+        console.warn('⚠️ [설정 저장] 주중 설정을 찾을 수 없습니다!');
       }
+      
+      // 저장할 config 확인
+      console.log('💾 [설정 저장] 저장할 config:', {
+        periodSchedules: config.periodSchedules,
+        weekdayInConfig: config.periodSchedules.find(ps => ps.dayType === 'weekday' && !ps.grade)
+      });
       
       configStorage.save(config, activeSession.id);
       

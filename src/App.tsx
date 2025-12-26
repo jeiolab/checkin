@@ -67,16 +67,17 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
+        console.log('[APP] 초기화 시작');
         await initializeSampleData();
+        console.log('[APP] 샘플 데이터 초기화 완료');
         const user = await getCurrentUser();
+        console.log('[APP] 현재 사용자:', user ? user.name : '없음');
         setCurrentUser(user);
       } catch (error) {
-        // 개발 모드에서만 오류 로그 출력
-        if (import.meta.env.DEV) {
-          console.error('[APP] 초기화 오류:', error);
-        }
+        console.error('[APP] 초기화 오류:', error);
         // 오류가 발생해도 로딩은 완료 처리
       } finally {
+        console.log('[APP] 초기화 완료, 로딩 상태 해제');
         setLoading(false);
       }
     };

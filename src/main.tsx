@@ -19,9 +19,25 @@ if ('serviceWorker' in navigator && (import.meta as any).env?.PROD) {
   });
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-)
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+
+try {
+  ReactDOM.createRoot(rootElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>,
+  );
+} catch (error) {
+  console.error('앱 렌더링 오류:', error);
+  rootElement.innerHTML = `
+    <div style="padding: 20px; text-align: center;">
+      <h1>앱 로드 오류</h1>
+      <p>브라우저 콘솔을 확인하세요.</p>
+      <pre style="text-align: left; background: #f5f5f5; padding: 10px; border-radius: 4px; overflow: auto;">${error instanceof Error ? error.stack : String(error)}</pre>
+    </div>
+  `;
+}
 

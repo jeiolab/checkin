@@ -312,7 +312,14 @@ export default function UserManagement() {
           <h2>사용자 관리</h2>
           <p className="header-subtitle">시스템 사용자 계정을 관리합니다</p>
         </div>
-        <button onClick={() => setShowAddForm(true)} className="add-btn">
+        <button 
+          onClick={() => {
+            console.log('[USER MANAGEMENT] 사용자 추가 버튼 클릭');
+            console.log('[USER MANAGEMENT] 현재 사용자 수:', users.length);
+            setShowUserSelectModal(true);
+          }} 
+          className="add-btn"
+        >
           <UserPlus size={18} />
           <span>사용자 추가</span>
         </button>
@@ -588,8 +595,14 @@ function UserSelectModal({
     }
   };
 
+  console.log('[USER SELECT MODAL] 모달 렌더링', { 
+    allUsersCount: allUsers.length, 
+    currentUserId: currentUser?.id,
+    selectedRole 
+  });
+
   const filteredUsers = useMemo(() => {
-    return allUsers.filter(user => {
+    const filtered = allUsers.filter(user => {
       // 현재 사용자 제외
       if (user.id === currentUser?.id) return false;
       
@@ -603,6 +616,8 @@ function UserSelectModal({
       if (filterRole !== 'all' && user.role !== filterRole) return false;
       return true;
     });
+    console.log('[USER SELECT MODAL] 필터링된 사용자 수:', filtered.length);
+    return filtered;
   }, [allUsers, currentUser, searchQuery, filterRole]);
 
   const selectableCount = filteredUsers.length;

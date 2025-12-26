@@ -22,39 +22,6 @@
 - **Date Handling**: date-fns
 - **Excel**: xlsx
 
-## 시작하기
-
-### 필수 요구사항
-
-- Node.js 18 이상
-- npm 또는 yarn
-
-### 설치
-
-```bash
-# 의존성 설치
-npm install
-
-# 개발 서버 실행
-npm run dev
-
-# 프로덕션 빌드
-npm run build
-```
-
-### 초기 설정
-
-시스템을 처음 사용할 때는 관리자 계정을 생성해야 합니다. 자세한 내용은 [SETUP_GUIDE.md](./SETUP_GUIDE.md)를 참고하세요.
-
-## 보안
-
-- 비밀번호는 PBKDF2 (100,000회 반복) + SHA-256으로 해싱됩니다
-- 각 비밀번호마다 고유한 salt가 생성됩니다
-- 입력값은 자동으로 검증 및 정제됩니다
-- XSS 공격 방지를 위한 입력값 검증이 구현되어 있습니다
-
-자세한 보안 정보는 [SECURITY.md](./SECURITY.md)와 [SECURITY_AUDIT.md](./SECURITY_AUDIT.md)를 참고하세요.
-
 ## 주요 페이지
 
 - **대시보드**: 전체 출석 현황 요약

@@ -1,5 +1,7 @@
 import type { Student, AttendanceRecord, AttendanceConfig, SemesterSchedule, Session, WeeklyReport, User, PendingAttendance } from '../types';
 import { createSession } from './session';
+import { hashPassword } from './security';
+import { format } from 'date-fns';
 
 const STORAGE_KEYS = {
   STUDENTS: 'neungju_students',
@@ -391,7 +393,23 @@ export const initializeSampleData = async () => {
     sessionStorage.save(defaultSessions);
   }
 
-  // 기본 사용자 생성 제거 - 실제 사용 시 관리자가 직접 계정을 생성해야 함
+  // 기본 관리자 계정 생성
+  const users = await userStorage.load();
+  if (users.length === 0) {
+    const { hashPassword } = await import('./security');
+    const { format } = await import('date-fns');
+    
+    const adminUser: User = {
+      id: `admin-${Date.now()}`,
+      name: '관리자',
+      role: 'admin',
+      email: 'ilsangsw@gmail.com',
+      password: await hashPassword('flqjvnf@81'),
+      createdAt: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+    };
+    
+    await userStorage.save([adminUser]);
+  }
 };
 
 // 주간 리포트 저장/로드

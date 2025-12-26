@@ -49,7 +49,18 @@ export default function Login() {
       }
     } catch (err) {
       console.error('[LOGIN PAGE] 로그인 오류:', err);
-      setError(`로그인 중 오류가 발생했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
+      
+      // 네트워크 오류인 경우 더 명확한 메시지 표시
+      let errorMessage = '로그인 중 오류가 발생했습니다.';
+      if (err instanceof Error) {
+        if (err.message.includes('Failed to fetch') || err.message.includes('ERR_NAME_NOT_RESOLVED')) {
+          errorMessage = 'Supabase 서버에 연결할 수 없습니다. 프로젝트가 일시 중지되었거나 네트워크 문제가 있을 수 있습니다. Supabase 대시보드에서 프로젝트 상태를 확인하세요.';
+        } else {
+          errorMessage = `로그인 중 오류가 발생했습니다: ${err.message}`;
+        }
+      }
+      
+      setError(errorMessage);
       setPassword('');
     } finally {
       setLoading(false);

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { format } from 'date-fns';
 import { Trash2, Edit2, Search, UserPlus, Shield, GraduationCap, BookOpen, Users, Mail, Calendar, Clock, MoreVertical } from 'lucide-react';
 import { getAllUsers, createUser, updateUser, deleteUser } from '../utils/user-supabase';
 import { getCurrentUser, canEditSettings } from '../utils/auth-supabase';
@@ -39,13 +38,8 @@ export default function UserManagement() {
   }, []);
 
   const loadUsers = async () => {
-    const allUsers = await userStorage.load();
+    const allUsers = await getAllUsers();
     setUsers(allUsers);
-  };
-
-  const saveUsers = (updatedUsers: User[]) => {
-    setUsers(updatedUsers);
-    userStorage.save(updatedUsers);
   };
 
   const filteredUsers = useMemo(() => {
@@ -108,17 +102,31 @@ export default function UserManagement() {
       return;
     }
 
-    const newId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const newUser: User = {
-      ...userData,
-      name: sanitizeInput(userData.name.trim()),
-      email: userData.email ? sanitizeInput(userData.email.trim()) : undefined,
-      subject: userData.subject ? sanitizeInput(userData.subject.trim()) : undefined,
-      password: await hashPassword(userData.password),
-      id: newId,
-      createdAt: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
-    };
-    await saveUsers([...users, newUser]);
+    if (!userData.email) {
+      alert('이메일을 입력해주세요.');
+      return;
+    }
+
+    // Supabase로 사용자 생성
+    const newUser = await createUser(
+      sanitizeInput(userData.email.trim()),
+      userData.password,
+      {
+        name: sanitizeInput(userData.name.trim()),
+        role: userData.role,
+        grade: userData.grade,
+        class: userData.class,
+        subject: userData.subject ? sanitizeInput(userData.subject.trim()) : undefined,
+        studentId: userData.studentId,
+      }
+    );
+
+    if (!newUser) {
+      alert('사용자 생성에 실패했습니다.');
+      return;
+    }
+
+    await loadUsers(); // 목록 새로고침
     setShowAddForm(false);
   };
 
@@ -130,18 +138,22 @@ export default function UserManagement() {
 
     if (!editingUser) return;
 
-    const updated: User = {
-      ...userData,
-      id: editingUser.id,
-      createdAt: editingUser.createdAt,
-    };
+    // Supabase로 사용자 업데이트
+    const success = await updateUser(editingUser.id, {
+      name: sanitizeInput(userData.name.trim()),
+      role: userData.role,
+      grade: userData.grade,
+      class: userData.class,
+      subject: userData.subject ? sanitizeInput(userData.subject.trim()) : undefined,
+      studentId: userData.studentId,
+    });
 
-    const index = users.findIndex(u => u.id === updated.id);
-    if (index >= 0) {
-      const updatedUsers = [...users];
-      updatedUsers[index] = updated;
-      await saveUsers(updatedUsers);
+    if (!success) {
+      alert('사용자 수정에 실패했습니다.');
+      return;
     }
+
+    await loadUsers(); // 목록 새로고침
     setEditingUser(null);
   };
 

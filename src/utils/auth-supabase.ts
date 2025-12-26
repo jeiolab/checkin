@@ -75,23 +75,39 @@ export const login = async (emailOrName: string, password: string): Promise<User
     // Supabase는 이메일로만 로그인 가능하므로, 이름으로 로그인하려면
     // 먼저 사용자 메타데이터에서 이름으로 이메일을 찾아야 함
     if (!isEmail) {
+      console.log('[SUPABASE LOGIN] 이름으로 로그인 시도, 프로필에서 이메일 찾기:', emailOrName);
+      
       // 이름으로 사용자 찾기 (Supabase에서 사용자 메타데이터 조회)
-      const { data: users, error: searchError } = await supabase
+      // RLS 정책 때문에 로그인 전에는 조회가 안 될 수 있으므로, 
+      // 먼저 시도하고 실패하면 이메일 형식으로 변환 시도
+      const { data: profile, error: searchError } = await supabase
         .from('user_profiles')
         .select('email, name')
         .eq('name', emailOrName)
-        .single();
+        .maybeSingle();
 
-      if (searchError || !users) {
-        console.log('[SUPABASE LOGIN] 이름으로 사용자를 찾을 수 없음:', emailOrName);
+      if (searchError) {
+        console.error('[SUPABASE LOGIN] 프로필 조회 오류:', searchError);
+        // RLS 정책 때문에 조회가 안 될 수 있음 - 이메일 형식으로 변환 시도
+        console.log('[SUPABASE LOGIN] RLS 정책 때문에 조회 실패, 이메일 형식으로 변환 시도');
+        // 이름을 이메일로 변환 (예: "홍길동" -> "홍길동@example.com"은 작동하지 않으므로 null 반환)
+        console.log('[SUPABASE LOGIN] 이름으로는 로그인할 수 없습니다. 이메일을 사용하세요.');
         return null;
       }
 
-      email = users.email;
+      if (!profile || !profile.email) {
+        console.log('[SUPABASE LOGIN] 이름으로 사용자를 찾을 수 없음:', emailOrName);
+        console.log('[SUPABASE LOGIN] 이메일 주소로 로그인하세요.');
+        return null;
+      }
+
+      email = profile.email;
       console.log('[SUPABASE LOGIN] 이름으로 이메일 찾음:', email);
     }
 
     // Supabase Auth로 로그인
+    console.log('[SUPABASE LOGIN] Supabase Auth 로그인 시도:', { email: email.trim(), passwordLength: password.length });
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password: password,
@@ -99,6 +115,16 @@ export const login = async (emailOrName: string, password: string): Promise<User
 
     if (error) {
       console.error('[SUPABASE LOGIN] 로그인 오류:', error);
+      console.error('[SUPABASE LOGIN] 오류 코드:', error.status);
+      console.error('[SUPABASE LOGIN] 오류 메시지:', error.message);
+      
+      // 더 자세한 오류 정보 제공
+      if (error.message.includes('Invalid login credentials')) {
+        console.error('[SUPABASE LOGIN] 이메일 또는 비밀번호가 올바르지 않습니다.');
+      } else if (error.message.includes('Email not confirmed')) {
+        console.error('[SUPABASE LOGIN] 이메일 인증이 완료되지 않았습니다.');
+      }
+      
       return null;
     }
 
@@ -108,6 +134,43 @@ export const login = async (emailOrName: string, password: string): Promise<User
     }
 
     console.log('[SUPABASE LOGIN] 로그인 성공:', data.user.email);
+
+    // 프로필이 있는지 확인하고 없으면 생성
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.log('[SUPABASE LOGIN] 프로필이 없어서 자동 생성:', data.user.id);
+      
+      // 기존 사용자 메타데이터에서 정보 추출
+      const userMetadata = data.user.user_metadata || {};
+      const name = userMetadata.name || data.user.email?.split('@')[0] || '사용자';
+      const role = (userMetadata.role || 'teacher') as UserRole;
+      
+      // 프로필 생성 시도
+      const { error: createError } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: data.user.id,
+          name: name,
+          email: data.user.email || '',
+          role: role,
+          grade: userMetadata.grade || null,
+          class: userMetadata.class || null,
+          subject: userMetadata.subject || null,
+          student_id: userMetadata.studentId || null,
+        });
+
+      if (createError) {
+        console.error('[SUPABASE LOGIN] 프로필 자동 생성 오류:', createError);
+        // 프로필 생성 실패해도 로그인은 계속 진행
+      } else {
+        console.log('[SUPABASE LOGIN] 프로필 자동 생성 성공');
+      }
+    }
 
     // 사용자 메타데이터 가져오기
     const metadata = data.user.user_metadata as UserMetadata;
@@ -152,28 +215,74 @@ export const getCurrentUser = async (): Promise<User | null> => {
     }
 
     // 사용자 프로필 가져오기 (user_profiles 테이블에서)
-    const { data: profile, error: profileError } = await supabase
+    console.log('[SUPABASE] 사용자 프로필 조회 시작:', { userId: user.id, email: user.email });
+    
+    let { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', user.id)
       .single();
 
-    if (profileError) {
-      console.error('[SUPABASE] 프로필 조회 오류:', profileError);
-      // 프로필이 없어도 기본 정보로 사용자 생성
+    console.log('[SUPABASE] 프로필 조회 결과:', { 
+      profile: profile, 
+      error: profileError,
+      hasProfile: !!profile,
+      profileRole: profile?.role 
+    });
+
+    // 프로필이 없으면 기존 사용자 정보로 자동 생성
+    if (profileError || !profile) {
+      console.log('[SUPABASE] 프로필이 없어서 자동 생성 시도:', user.id);
+      
+      // 기존 사용자 메타데이터에서 정보 추출
+      const userMetadata = user.user_metadata || {};
+      const name = userMetadata.name || user.email?.split('@')[0] || '사용자';
+      const role = (userMetadata.role || 'teacher') as UserRole;
+      
+      // 프로필 생성 시도
+      const { data: newProfile, error: createError } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: user.id,
+          name: name,
+          email: user.email || '',
+          role: role,
+          grade: userMetadata.grade || null,
+          class: userMetadata.class || null,
+          subject: userMetadata.subject || null,
+          student_id: userMetadata.studentId || null,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('[SUPABASE] 프로필 자동 생성 오류:', createError);
+        // 프로필 생성 실패해도 기본 정보로 사용자 생성
+        profile = null;
+      } else {
+        profile = newProfile;
+        console.log('[SUPABASE] 프로필 자동 생성 성공:', profile);
+      }
     }
 
     // 사용자 메타데이터와 프로필 결합
+    // 프로필이 있으면 프로필의 role을 우선 사용 (Supabase 테이블이 최신 정보)
     const metadata: UserMetadata = {
       name: profile?.name || user.user_metadata?.name || user.email?.split('@')[0] || '사용자',
-      role: (profile?.role || user.user_metadata?.role || 'teacher') as UserRole,
+      role: (profile?.role || user.user_metadata?.role || 'teacher') as UserRole, // 프로필의 role 우선
       grade: (profile?.grade || user.user_metadata?.grade) as Grade | undefined,
       class: (profile?.class || user.user_metadata?.class) as Class | undefined,
       subject: profile?.subject || user.user_metadata?.subject,
       studentId: profile?.student_id || user.user_metadata?.studentId,
     };
 
-    return convertSupabaseUser(user, metadata);
+    console.log('[SUPABASE] 최종 사용자 메타데이터:', metadata);
+
+    const convertedUser = convertSupabaseUser(user, metadata);
+    console.log('[SUPABASE] 변환된 사용자:', convertedUser);
+    console.log('[SUPABASE] 최종 사용자 역할:', convertedUser?.role);
+    
+    return convertedUser;
   } catch (error) {
     console.error('[SUPABASE] 현재 사용자 가져오기 오류:', error);
     return null;

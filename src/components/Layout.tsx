@@ -17,6 +17,8 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     const loadUser = async () => {
       const user = await getCurrentUser();
+      console.log('[LAYOUT] 현재 사용자:', user);
+      console.log('[LAYOUT] 사용자 역할:', user?.role);
       setCurrentUser(user);
     };
     loadUser();

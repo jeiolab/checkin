@@ -59,19 +59,34 @@ export default function AttendanceBook() {
     const activeSession = getActiveSession(sessions);
     const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
     const sessionId = currentSession?.id;
+    console.log('📋 [출석부] 세션 정보', { sessionId, selectedDate });
+    
     const config = configStorage.load(sessionId);
+    console.log('📋 [출석부] 로드된 설정', config);
+    
     if (config && config.periodSchedules && config.periodSchedules.length > 0) {
       const currentSchedules = sortSchedules(semesterScheduleStorage.load());
       const holidays = holidayStorage.load();
       const dayType = getDayType(selectedDate, currentSchedules, holidays);
+      console.log('📋 [출석부] 날짜 유형', dayType);
+      
       const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
+      console.log('📋 [출석부] 찾은 설정', schedule);
+      
       if (schedule) {
-        console.log('📋 [출석부] 마운트 시 설정 로드', schedule.periods);
+        console.log('📋 [출석부] 마운트 시 교시 시간표 업데이트', schedule.periods);
         setPeriods(schedule.periods);
         const maxPeriod = Math.max(...schedule.periods.map(p => p.period));
-        setStartPeriod(schedule.startPeriod ?? 1);
-        setEndPeriod(schedule.endPeriod ?? maxPeriod);
+        const newStartPeriod = schedule.startPeriod ?? 1;
+        const newEndPeriod = schedule.endPeriod ?? maxPeriod;
+        console.log('📋 [출석부] 교시 범위 업데이트', { newStartPeriod, newEndPeriod });
+        setStartPeriod(newStartPeriod);
+        setEndPeriod(newEndPeriod);
+      } else {
+        console.warn('⚠️ [출석부] 해당 dayType의 설정을 찾을 수 없음', { dayType, periodSchedules: config.periodSchedules });
       }
+    } else {
+      console.warn('⚠️ [출석부] 설정이 없거나 periodSchedules가 비어있음', { config });
     }
   }, [semester, grade, classNum, selectedDate]);
 

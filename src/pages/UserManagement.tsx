@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Trash2, Edit2, Search, UserPlus, Shield, GraduationCap, BookOpen, Users, Mail, Calendar, Clock, MoreVertical, UserCheck } from 'lucide-react';
+import { Trash2, Edit2, Search, UserPlus, Shield, GraduationCap, BookOpen, Users, Mail, Calendar, Clock, MoreVertical } from 'lucide-react';
 import { getAllUsers, createUser, updateUser, deleteUser } from '../utils/user-supabase';
 import { getCurrentUser, canEditSettings } from '../utils/auth-supabase';
 import { sanitizeInput, validateEmail, validatePasswordStrength, validateUserName } from '../utils/security';
-import { studentStorage } from '../utils/storage';
-import type { User, UserRole, Grade, Class, Student } from '../types';
+import type { User, UserRole, Grade, Class } from '../types';
 import './UserManagement.css';
 
 export default function UserManagement() {
@@ -13,13 +12,7 @@ export default function UserManagement() {
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showStudentList, setShowStudentList] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
-  const [studentSearchQuery, setStudentSearchQuery] = useState('');
-  const [studentFilterGrade, setStudentFilterGrade] = useState<1 | 2 | 3 | null>(null);
-  const [studentFilterClass, setStudentFilterClass] = useState<1 | 2 | 3 | 4 | 5 | 6 | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -32,13 +25,7 @@ export default function UserManagement() {
 
   useEffect(() => {
     loadUsers();
-    loadStudents();
   }, []);
-
-  const loadStudents = () => {
-    const allStudents = studentStorage.load();
-    setStudents(allStudents);
-  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -82,66 +69,6 @@ export default function UserManagement() {
     });
     return stats;
   }, [users]);
-
-  const handleAddUsersFromStudents = async (studentIds: string[]) => {
-    if (!canEdit) {
-      alert('사용자를 추가할 권한이 없습니다.');
-      return;
-    }
-
-    if (studentIds.length === 0) {
-      alert('추가할 학생을 선택해주세요.');
-      return;
-    }
-
-    const defaultPassword = prompt('기본 비밀번호를 입력하세요 (최소 8자):');
-    if (!defaultPassword || defaultPassword.length < 8) {
-      alert('비밀번호는 최소 8자 이상이어야 합니다.');
-      return;
-    }
-
-    const passwordValidation = validatePasswordStrength(defaultPassword);
-    if (!passwordValidation.valid) {
-      alert(passwordValidation.message);
-      return;
-    }
-
-    const selectedStudents = students.filter(s => studentIds.includes(s.id));
-    let successCount = 0;
-    let failCount = 0;
-    const errors: string[] = [];
-
-    for (const student of selectedStudents) {
-      const email = `${student.grade}${student.class}${String(student.number).padStart(2, '0')}@h.jne.go.kr`;
-      
-      const result = await createUser(
-        email,
-        defaultPassword,
-        {
-          name: student.name,
-          role: 'student_monitor',
-          grade: student.grade,
-          class: student.class,
-          studentId: student.id,
-        }
-      );
-
-      if (result.error || !result.user) {
-        failCount++;
-        errors.push(`${student.name}: ${result.error || '알 수 없는 오류'}`);
-      } else {
-        successCount++;
-      }
-    }
-
-    await loadUsers();
-
-    if (failCount > 0) {
-      alert(`사용자 추가 완료\n성공: ${successCount}명\n실패: ${failCount}명\n\n오류:\n${errors.join('\n')}`);
-    } else {
-      alert(`${successCount}명의 학생이 사용자로 추가되었습니다.`);
-    }
-  };
 
   const handleAddUser = async (userData: Omit<User, 'id' | 'createdAt'>) => {
     if (!canEdit) {
@@ -304,16 +231,10 @@ export default function UserManagement() {
           <h2>사용자 관리</h2>
           <p className="header-subtitle">시스템 사용자 계정을 관리합니다</p>
         </div>
-        <div className="header-actions">
-          <button onClick={() => setShowStudentList(true)} className="add-btn secondary">
-            <UserCheck size={18} />
-            <span>학생 명단에서 추가</span>
-          </button>
-          <button onClick={() => setShowAddForm(true)} className="add-btn">
-            <UserPlus size={18} />
-            <span>사용자 추가</span>
-          </button>
-        </div>
+        <button onClick={() => setShowAddForm(true)} className="add-btn">
+          <UserPlus size={18} />
+          <span>사용자 추가</span>
+        </button>
       </div>
 
       <div className="stats-grid">
@@ -501,268 +422,9 @@ export default function UserManagement() {
         />
       )}
 
-      {showStudentList && (
-        <StudentListModal
-          students={students}
-          users={users}
-          selectedStudents={selectedStudents}
-          onSelectStudent={(studentId) => {
-            const newSelected = new Set(selectedStudents);
-            if (newSelected.has(studentId)) {
-              newSelected.delete(studentId);
-            } else {
-              newSelected.add(studentId);
-            }
-            setSelectedStudents(newSelected);
-          }}
-          onSelectAll={(selectAll) => {
-            if (selectAll) {
-              const existingUserStudentIds = new Set(users.filter(u => u.studentId).map(u => u.studentId!));
-              const filtered = students.filter(s => {
-                if (existingUserStudentIds.has(s.id)) return false;
-                if (studentFilterGrade && s.grade !== studentFilterGrade) return false;
-                if (studentFilterClass && s.class !== studentFilterClass) return false;
-                if (studentSearchQuery) {
-                  const query = studentSearchQuery.toLowerCase();
-                  const nameMatch = s.name.toLowerCase().includes(query);
-                  const numberMatch = s.number.toString().includes(query);
-                  const classMatch = `${s.grade}학년 ${s.class}반`.includes(query);
-                  if (!nameMatch && !numberMatch && !classMatch) return false;
-                }
-                return true;
-              });
-              setSelectedStudents(new Set(filtered.map((s: Student) => s.id)));
-            } else {
-              setSelectedStudents(new Set());
-            }
-          }}
-          onAddUsers={handleAddUsersFromStudents}
-          onCancel={() => {
-            setShowStudentList(false);
-            setSelectedStudents(new Set());
-            setStudentSearchQuery('');
-            setStudentFilterGrade(null);
-            setStudentFilterClass(null);
-          }}
-          searchQuery={studentSearchQuery}
-          onSearchChange={setStudentSearchQuery}
-          filterGrade={studentFilterGrade}
-          onFilterGradeChange={setStudentFilterGrade}
-          filterClass={studentFilterClass}
-          onFilterClassChange={setStudentFilterClass}
-        />
-      )}
     </div>
   );
 }
-
-// 학생 목록 모달
-interface StudentListModalProps {
-  students: Student[];
-  users: User[];
-  selectedStudents: Set<string>;
-  onSelectStudent: (studentId: string) => void;
-  onSelectAll: (selectAll: boolean) => void;
-  onAddUsers: (studentIds: string[]) => Promise<void>;
-  onCancel: () => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  filterGrade: 1 | 2 | 3 | null;
-  onFilterGradeChange: (grade: 1 | 2 | 3 | null) => void;
-  filterClass: 1 | 2 | 3 | 4 | 5 | 6 | null;
-  onFilterClassChange: (classNum: 1 | 2 | 3 | 4 | 5 | 6 | null) => void;
-}
-
-function StudentListModal({
-  students,
-  users,
-  selectedStudents,
-  onSelectStudent,
-  onSelectAll,
-  onAddUsers,
-  onCancel,
-  searchQuery,
-  onSearchChange,
-  filterGrade,
-  onFilterGradeChange,
-  filterClass,
-  onFilterClassChange,
-}: StudentListModalProps) {
-  const [defaultPassword, setDefaultPassword] = useState('student123');
-  const [isAdding, setIsAdding] = useState(false);
-
-  // 이미 사용자로 등록된 학생 필터링
-  const existingUserStudentIds = new Set(users.filter(u => u.studentId).map(u => u.studentId!));
-
-  const getFilteredStudents = () => {
-    return students.filter(s => {
-      // 이미 사용자로 등록된 학생 제외
-      if (existingUserStudentIds.has(s.id)) return false;
-      
-      if (filterGrade && s.grade !== filterGrade) return false;
-      if (filterClass && s.class !== filterClass) return false;
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const nameMatch = s.name.toLowerCase().includes(query);
-        const numberMatch = s.number.toString().includes(query);
-        const classMatch = `${s.grade}학년 ${s.class}반`.includes(query);
-        if (!nameMatch && !numberMatch && !classMatch) return false;
-      }
-      return true;
-    });
-  };
-
-  const filteredStudents = getFilteredStudents();
-  const selectableCount = filteredStudents.length;
-  const selectedCount = filteredStudents.filter(s => selectedStudents.has(s.id)).length;
-  const allSelected = selectableCount > 0 && selectedCount === selectableCount;
-
-  const handleAdd = async () => {
-    if (selectedStudents.size === 0) {
-      alert('추가할 학생을 선택해주세요.');
-      return;
-    }
-
-    if (!defaultPassword || defaultPassword.length < 8) {
-      alert('기본 비밀번호는 최소 8자 이상이어야 합니다.');
-      return;
-    }
-
-    if (!confirm(`선택한 ${selectedStudents.size}명의 학생을 사용자로 추가하시겠습니까?\n기본 비밀번호: ${defaultPassword}`)) {
-      return;
-    }
-
-    setIsAdding(true);
-    try {
-      await onAddUsers(Array.from(selectedStudents));
-      alert(`${selectedStudents.size}명의 학생이 사용자로 추가되었습니다.`);
-      onCancel();
-    } catch (error) {
-      alert(`사용자 추가 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
-    } finally {
-      setIsAdding(false);
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-content student-list-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>학생 명단에서 사용자 추가</h3>
-        
-        <div className="student-list-controls">
-          <div className="search-box">
-            <Search size={18} />
-            <input
-              type="text"
-              placeholder="이름 또는 번호로 검색..."
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="search-input"
-            />
-          </div>
-          <div className="filter-group">
-            <select
-              value={filterGrade || ''}
-              onChange={(e) => onFilterGradeChange(e.target.value ? Number(e.target.value) as 1 | 2 | 3 : null)}
-              className="filter-select"
-            >
-              <option value="">전체 학년</option>
-              <option value="1">1학년</option>
-              <option value="2">2학년</option>
-              <option value="3">3학년</option>
-            </select>
-            <select
-              value={filterClass || ''}
-              onChange={(e) => onFilterClassChange(e.target.value ? Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 : null)}
-              className="filter-select"
-            >
-              <option value="">전체 반</option>
-              <option value="1">1반</option>
-              <option value="2">2반</option>
-              <option value="3">3반</option>
-              <option value="4">4반</option>
-              <option value="5">5반</option>
-              <option value="6">6반</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="student-list-header">
-          <label className="select-all-checkbox">
-            <input
-              type="checkbox"
-              checked={allSelected}
-              onChange={(e) => onSelectAll(e.target.checked)}
-            />
-            <span>전체 선택 ({selectedCount}/{selectableCount})</span>
-          </label>
-          <div className="default-password-input">
-            <label>기본 비밀번호:</label>
-            <input
-              type="password"
-              value={defaultPassword}
-              onChange={(e) => setDefaultPassword(e.target.value)}
-              placeholder="기본 비밀번호"
-              minLength={8}
-            />
-            <small>모든 학생에게 동일한 비밀번호가 설정됩니다.</small>
-          </div>
-        </div>
-
-        <div className="student-list-content">
-          {filteredStudents.length === 0 ? (
-            <div className="empty-state">
-              <Users size={48} />
-              <p>추가할 수 있는 학생이 없습니다.</p>
-            </div>
-          ) : (
-            <div className="student-list">
-              {filteredStudents.map(student => {
-                const isSelected = selectedStudents.has(student.id);
-                const email = `${student.grade}${student.class}${String(student.number).padStart(2, '0')}@h.jne.go.kr`;
-                
-                return (
-                  <div
-                    key={student.id}
-                    className={`student-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => onSelectStudent(student.id)}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => onSelectStudent(student.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <div className="student-info">
-                      <span className="student-name">{student.name}</span>
-                      <span className="student-class">{student.grade}학년 {student.class}반 {student.number}번</span>
-                      <span className="student-email">{email}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <div className="modal-actions">
-          <button type="button" onClick={onCancel} className="cancel-btn" disabled={isAdding}>
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={handleAdd}
-            className="save-btn"
-            disabled={selectedStudents.size === 0 || isAdding}
-          >
-            {isAdding ? '추가 중...' : `선택한 ${selectedStudents.size}명 추가`}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 // 사용자 추가/수정 폼
 interface UserFormProps {

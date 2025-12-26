@@ -193,7 +193,16 @@ export default function Settings() {
   };
 
   const getCurrentSchedule = (): PeriodSchedule | undefined => {
-    return periodSchedules.find(ps => ps.dayType === selectedDayType && !ps.grade);
+    const schedule = periodSchedules.find(ps => ps.dayType === selectedDayType && !ps.grade);
+    if (schedule && selectedDayType === 'weekday') {
+      console.log('📊 [설정] 주중(weekday) 현재 설정:', {
+        startPeriod: schedule.startPeriod ?? 1,
+        endPeriod: schedule.endPeriod ?? Math.max(...schedule.periods.map(p => p.period)),
+        periodsCount: schedule.periods.length,
+        maxPeriod: Math.max(...schedule.periods.map(p => p.period))
+      });
+    }
+    return schedule;
   };
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -254,6 +263,17 @@ export default function Settings() {
     
     try {
       console.log('💾 [설정 저장] 시작', { sessionId: activeSession.id, periodSchedules });
+      
+      // 주중 설정 확인
+      const weekdaySchedule = periodSchedules.find(ps => ps.dayType === 'weekday' && !ps.grade);
+      if (weekdaySchedule) {
+        console.log('💾 [설정 저장] 주중(weekday) 저장 전:', {
+          startPeriod: weekdaySchedule.startPeriod ?? 1,
+          endPeriod: weekdaySchedule.endPeriod ?? Math.max(...weekdaySchedule.periods.map(p => p.period)),
+          periodsCount: weekdaySchedule.periods.length
+        });
+      }
+      
       configStorage.save(config, activeSession.id);
       
       // 저장된 데이터 확인을 위해 다시 로드
@@ -261,6 +281,14 @@ export default function Settings() {
       console.log('💾 [설정 저장] 저장된 설정 확인', savedConfig);
       
       if (savedConfig && savedConfig.periodSchedules) {
+        const savedWeekday = savedConfig.periodSchedules.find(ps => ps.dayType === 'weekday' && !ps.grade);
+        if (savedWeekday) {
+          console.log('💾 [설정 저장] 주중(weekday) 저장 후:', {
+            startPeriod: savedWeekday.startPeriod ?? 1,
+            endPeriod: savedWeekday.endPeriod ?? Math.max(...savedWeekday.periods.map(p => p.period)),
+            periodsCount: savedWeekday.periods.length
+          });
+        }
         setPeriodSchedules(savedConfig.periodSchedules);
       }
       

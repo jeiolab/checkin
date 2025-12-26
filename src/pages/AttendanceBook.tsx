@@ -864,22 +864,16 @@ export default function AttendanceBook() {
         <div className="config-row">
           <label>
             <span>학기/방학:</span>
-            <select value={semester} onChange={(e) => setSemester(e.target.value as any)}>
+            <span className="semester-display">
               {schedules.length > 0 ? (
-                schedules.map(schedule => (
-                  <option key={schedule.id} value={schedule.type}>
-                    {schedule.name}
-                  </option>
-                ))
+                (() => {
+                  const matchedSchedule = getSemesterForDate(selectedDate, schedules);
+                  return matchedSchedule ? matchedSchedule.name : semester;
+                })()
               ) : (
-                <>
-                  <option value="1학기">1학기</option>
-                  <option value="2학기">2학기</option>
-                  <option value="여름방학">여름방학</option>
-                  <option value="겨울방학">겨울방학</option>
-                </>
+                semester
               )}
-            </select>
+            </span>
           </label>
           <label>
             <span>학년:</span>

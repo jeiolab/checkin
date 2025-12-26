@@ -240,10 +240,12 @@ export default function AttendanceBook() {
       }
     };
 
+    console.log('📡 [출석부] 이벤트 리스너 등록 시작');
     window.addEventListener('attendanceConfigUpdated', handleConfigUpdate as EventListener);
     window.addEventListener('holidaysUpdated', handleHolidaysUpdate);
     window.addEventListener('semesterScheduleUpdated', handleSemesterScheduleUpdate);
     window.addEventListener('sessionUpdated', handleSessionUpdate);
+    console.log('📡 [출석부] 이벤트 리스너 등록 완료');
     
     return () => {
       window.removeEventListener('attendanceConfigUpdated', handleConfigUpdate as EventListener);

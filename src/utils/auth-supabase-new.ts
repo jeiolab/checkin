@@ -237,9 +237,10 @@ export const getCurrentUser = async (): Promise<User | null> => {
 };
 
 // 권한 관련 함수들 (기존 코드 유지)
-export const hasPermission = (user: User | null, permission: string): boolean => {
+export const hasPermission = (user: User | null, _permission: string): boolean => {
   if (!user) return false;
   // 간단한 권한 체크 (필요시 확장)
+  // _permission 매개변수는 나중에 사용할 수 있도록 유지 (언더스코어로 사용하지 않음을 표시)
   return user.role === 'admin' || user.role === 'teacher';
 };
 

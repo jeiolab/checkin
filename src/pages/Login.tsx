@@ -30,6 +30,15 @@ export default function Login() {
     }
 
     try {
+      // Supabase 환경 변수 확인
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+      if (!supabaseUrl) {
+        setError('Supabase 설정이 올바르지 않습니다. .env.local 파일을 확인하세요.');
+        setLoading(false);
+        console.error('Supabase URL이 설정되지 않았습니다. .env.local 파일에 VITE_SUPABASE_URL을 추가하세요.');
+        return;
+      }
+
       // identifier는 sanitize하지만 password는 원본 그대로 전달 (특수문자 포함)
       const loginResult = await login(identifier.trim(), password);
       
@@ -40,15 +49,21 @@ export default function Login() {
           window.location.reload();
         }, 100);
       } else {
-        setError('이름(또는 이메일) 또는 비밀번호가 올바르지 않습니다.');
+        // 브라우저 콘솔에서 더 자세한 오류 확인 가능
+        setError('이름(또는 이메일) 또는 비밀번호가 올바르지 않습니다. 브라우저 콘솔(F12)을 확인하세요.');
         setPassword(''); // 보안을 위해 비밀번호 필드 초기화
       }
     } catch (err) {
       // 네트워크 오류인 경우 더 명확한 메시지 표시
       let errorMessage = '로그인 중 오류가 발생했습니다.';
       if (err instanceof Error) {
+        console.error('[LOGIN PAGE] 로그인 오류:', err);
         if (err.message.includes('Failed to fetch') || err.message.includes('ERR_NAME_NOT_RESOLVED')) {
-          errorMessage = '서버에 연결할 수 없습니다. 네트워크 연결을 확인하세요.';
+          errorMessage = '서버에 연결할 수 없습니다. 네트워크 연결과 Supabase 프로젝트 상태를 확인하세요.';
+        } else if (err.message.includes('supabaseUrl is required')) {
+          errorMessage = 'Supabase 설정이 올바르지 않습니다. .env.local 파일을 확인하세요.';
+        } else {
+          errorMessage = `로그인 중 오류가 발생했습니다: ${err.message}`;
         }
       }
       

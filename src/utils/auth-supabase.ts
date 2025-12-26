@@ -121,6 +121,13 @@ export const login = async (emailOrName: string, password: string): Promise<User
       devLog('[SUPABASE LOGIN] 이름으로 이메일 찾음');
     }
 
+    // Supabase 클라이언트 확인
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+    if (!supabaseUrl) {
+      console.error('[SUPABASE LOGIN] Supabase URL이 설정되지 않았습니다. .env.local 파일을 확인하세요.');
+      return null;
+    }
+
     // Supabase Auth로 로그인
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -128,7 +135,24 @@ export const login = async (emailOrName: string, password: string): Promise<User
     });
 
     if (error) {
-      devError('[SUPABASE LOGIN] 로그인 오류:', error.message);
+      // 개발 모드에서는 상세 오류, 프로덕션에서는 일반 메시지
+      if (isDev) {
+        console.error('[SUPABASE LOGIN] 로그인 오류:', {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+        });
+      }
+      
+      // 특정 오류에 대한 더 명확한 메시지
+      if (error.message.includes('Invalid login credentials')) {
+        console.error('[SUPABASE LOGIN] 이메일 또는 비밀번호가 올바르지 않습니다.');
+      } else if (error.message.includes('Email not confirmed')) {
+        console.error('[SUPABASE LOGIN] 이메일 인증이 완료되지 않았습니다.');
+      } else if (error.message.includes('Too many requests')) {
+        console.error('[SUPABASE LOGIN] 너무 많은 로그인 시도가 있었습니다. 잠시 후 다시 시도하세요.');
+      }
+      
       return null;
     }
 

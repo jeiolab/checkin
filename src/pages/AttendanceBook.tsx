@@ -141,15 +141,45 @@ export default function AttendanceBook() {
     const sessionId = currentSession?.id;
     console.log('📋 [출석부] 세션 정보', { sessionId, selectedDate });
     
-    const config = configStorage.load(sessionId);
+    // 전역 교시 시간 설정 우선 확인
+    const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+    console.log('📋 [출석부] 전역 교시 시간 설정', globalPeriodSchedules);
+    
+    // 세션별 설정 로드
+    let config = configStorage.load(sessionId);
     console.log('📋 [출석부] 로드된 설정', config);
     
-    if (config && config.periodSchedules && config.periodSchedules.length > 0) {
+    // 전역 설정이 있으면 우선 적용
+    let periodSchedulesToUse = config?.periodSchedules;
+    if (globalPeriodSchedules && globalPeriodSchedules.length > 0) {
+      console.log('📋 [출석부] 전역 설정 사용', globalPeriodSchedules);
+      periodSchedulesToUse = globalPeriodSchedules;
+      
+      // config가 없으면 전역 설정만으로 구성
+      if (!config) {
+        config = {
+          semester: '1학기',
+          grade: 1,
+          class: 1,
+          dayPeriodRanges: [],
+          periodSchedules: globalPeriodSchedules,
+          sessionId: sessionId || '',
+        };
+      } else {
+        // config가 있으면 전역 설정으로 병합
+        config = {
+          ...config,
+          periodSchedules: globalPeriodSchedules,
+        };
+      }
+    }
+    
+    if (config && periodSchedulesToUse && periodSchedulesToUse.length > 0) {
       const holidays = holidayStorage.load();
       const dayType = getDayType(selectedDate, schedules, holidays);
       console.log('📋 [출석부] 날짜 유형', dayType);
       
-      const schedule = config.periodSchedules.find(ps => ps.dayType === dayType && !ps.grade);
+      const schedule = periodSchedulesToUse.find(ps => ps.dayType === dayType && !ps.grade);
       console.log('📋 [출석부] 찾은 설정', schedule);
       
       if (schedule) {
@@ -162,10 +192,10 @@ export default function AttendanceBook() {
         setStartPeriod(newStartPeriod);
         setEndPeriod(newEndPeriod);
       } else {
-        console.warn('⚠️ [출석부] 해당 dayType의 설정을 찾을 수 없음', { dayType, periodSchedules: config.periodSchedules });
+        console.warn('⚠️ [출석부] 해당 dayType의 설정을 찾을 수 없음', { dayType, periodSchedules: periodSchedulesToUse });
       }
     } else {
-      console.warn('⚠️ [출석부] 설정이 없거나 periodSchedules가 비어있음', { config });
+      console.warn('⚠️ [출석부] 설정이 없거나 periodSchedules가 비어있음', { config, globalPeriodSchedules });
     }
   }, [schedules, selectedDate]);
 
@@ -388,9 +418,33 @@ export default function AttendanceBook() {
     const loadedSchedules = sortSchedules(semesterScheduleStorage.load());
     setSchedules(loadedSchedules);
 
+    // 전역 교시 시간 설정 우선 확인
+    const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+    
     // 세션별 설정 로드
     const sessionId = currentSession?.id;
-    const config = configStorage.load(sessionId);
+    let config = configStorage.load(sessionId);
+    
+    // 전역 설정이 있으면 우선 적용
+    if (globalPeriodSchedules && globalPeriodSchedules.length > 0) {
+      if (config) {
+        config = {
+          ...config,
+          periodSchedules: globalPeriodSchedules,
+        };
+      } else {
+        // config가 없으면 전역 설정만으로 구성
+        config = {
+          semester: '1학기',
+          grade: 1,
+          class: 1,
+          dayPeriodRanges: [],
+          periodSchedules: globalPeriodSchedules,
+          sessionId: sessionId || '',
+        };
+      }
+    }
+    
     // 설정이 있으면 사용 (학년/반 조건 완화 - 교시 범위는 공통으로 사용)
     if (config) {
       // 날짜 유형에 맞는 교시 시간표 로드
@@ -436,12 +490,36 @@ export default function AttendanceBook() {
     // 세션별 설정 로드
     if (schedules.length === 0) return; // schedules가 로드될 때까지 대기
     
+    // 전역 교시 시간 설정 우선 확인
+    const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+    
     const sessions = sessionStorage.load();
     const activeSession = getActiveSession(sessions);
     const currentSession = activeSession || getSessionForDate(selectedDate, sessions);
     const sessionId = currentSession?.id;
     
-    const config = configStorage.load(sessionId);
+    let config = configStorage.load(sessionId);
+    
+    // 전역 설정이 있으면 우선 적용
+    if (globalPeriodSchedules && globalPeriodSchedules.length > 0) {
+      if (config) {
+        config = {
+          ...config,
+          periodSchedules: globalPeriodSchedules,
+        };
+      } else {
+        // config가 없으면 전역 설정만으로 구성
+        config = {
+          semester: '1학기',
+          grade: 1,
+          class: 1,
+          dayPeriodRanges: [],
+          periodSchedules: globalPeriodSchedules,
+          sessionId: sessionId || '',
+        };
+      }
+    }
+    
     // 설정이 있으면 사용 (학년/반 조건 완화 - 교시 범위는 공통으로 사용)
     if (config) {
       loadPeriodsForDate(selectedDate, config, schedules);

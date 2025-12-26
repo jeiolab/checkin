@@ -172,34 +172,6 @@ export default function Settings() {
     ]);
   };
 
-  const saveConfig = () => {
-    if (!canEdit) {
-      setSavedMessage('설정을 수정할 권한이 없습니다.');
-      setTimeout(() => setSavedMessage(''), 3000);
-      return;
-    }
-
-    const config: AttendanceConfig = {
-      semester,
-      grade,
-      class: classNum,
-      dayPeriodRanges: [], // 더 이상 사용하지 않지만 하위 호환성을 위해 빈 배열 유지
-      periodSchedules,
-      sessionId: activeSession?.id,
-    };
-    configStorage.save(config, activeSession?.id);
-    
-    // 설정 변경 이벤트 발생 (출석부 탭에서 감지)
-    if (activeSession?.id) {
-      window.dispatchEvent(new CustomEvent('attendanceConfigUpdated', { 
-        detail: { sessionId: activeSession.id } 
-      }));
-    }
-    
-    setSavedMessage('설정이 저장되었습니다.');
-    setTimeout(() => setSavedMessage(''), 3000);
-  };
-
   const getCurrentPeriods = (): Period[] => {
     const schedule = periodSchedules.find(ps => ps.dayType === selectedDayType);
     if (!schedule) return [];
@@ -772,14 +744,6 @@ export default function Settings() {
           </div>
         )}
       </div>
-
-      {canEdit && (
-        <div className="settings-actions">
-          <button onClick={saveConfig} className="save-config-btn">
-            전체 설정 저장
-          </button>
-        </div>
-      )}
     </div>
   );
 }

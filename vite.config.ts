@@ -45,7 +45,7 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // 프로덕션에서 console 제거
+        drop_console: false, // 디버깅을 위해 console 유지
         drop_debugger: true,
       },
     },

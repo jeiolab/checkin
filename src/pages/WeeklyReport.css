@@ -1,0 +1,869 @@
+.weekly-report {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  gap: 2rem;
+}
+
+.report-header h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.header-description {
+  color: #4b5563;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.generate-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.generate-btn:hover {
+  background: #5568d3;
+}
+
+.generate-btn.secondary {
+  background: #6b7280;
+}
+
+.generate-btn.secondary:hover {
+  background: #4b5563;
+}
+
+.report-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+}
+
+.report-selector label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.report-select {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: white;
+  cursor: pointer;
+  min-width: 250px;
+  flex: 1;
+}
+
+.delete-report-btn,
+.delete-all-reports-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #ef4444;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: white;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.delete-report-btn:hover,
+.delete-all-reports-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.delete-all-reports-btn {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.delete-all-reports-btn:hover {
+  background: #dc2626;
+  color: white;
+}
+
+.report-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.report-period {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #f0f4ff;
+  border-radius: 0.5rem;
+  border-left: 4px solid #667eea;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.generated-at {
+  margin-left: auto;
+  font-size: 0.875rem;
+  color: #4b5563;
+  font-weight: normal;
+}
+
+.delete-report-inline-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ef4444;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: white;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 1rem;
+}
+
+.delete-report-inline-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.insights-section {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.insights-section h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+}
+
+.insights-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.insight-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  border-left: 4px solid;
+  transition: all 0.2s;
+}
+
+.insight-card:hover {
+  background: #f3f4f6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.insight-icon {
+  flex-shrink: 0;
+}
+
+.insight-content {
+  flex: 1;
+}
+
+.insight-message {
+  margin: 0 0 0.5rem 0;
+  color: #1f2937;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.insight-change {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.change-up {
+  color: #ef4444;
+}
+
+.change-down {
+  color: #10b981;
+}
+
+.report-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.report-filters label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.filter-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background: white;
+  cursor: pointer;
+}
+
+.stats-section {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.stats-section h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+}
+
+.grade-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  padding: 1.25rem;
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.stat-card h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 1rem 0;
+}
+
+.stat-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.metric-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.metric-value.warning {
+  color: #ef4444;
+}
+
+.class-stats-table {
+  overflow-x: auto;
+}
+
+.class-stats-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.class-stats-table th {
+  background: #f9fafb;
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.class-stats-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1f2937; /* 텍스트 색상 명시 */
+}
+
+.class-name {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.rate {
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.rate.good {
+  color: #10b981;
+  background: #d1fae5;
+}
+
+.rate.normal {
+  color: #f59e0b;
+  background: #fef3c7;
+}
+
+.rate.bad {
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.comparison {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.change-neutral {
+  color: #4b5563;
+}
+
+.no-data {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: #4b5563;
+}
+
+.empty-state svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+  margin: 0 0 1.5rem 0;
+}
+
+/* 관심 필요 학생 우선순위화 */
+.priority-alerts-section {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.priority-alerts-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.section-description {
+  color: #4b5563;
+  font-size: 0.875rem;
+  margin: 0 0 1.5rem 0;
+}
+
+.priority-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.priority-alert {
+  border: 2px solid;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  background: #fef2f2;
+}
+
+.priority-alert.priority-high {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.priority-alert.priority-medium {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.priority-alert.priority-low {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.priority-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.priority-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.priority-high .priority-badge {
+  background: #ef4444;
+  color: white;
+}
+
+.priority-medium .priority-badge {
+  background: #f59e0b;
+  color: white;
+}
+
+.priority-low .priority-badge {
+  background: #3b82f6;
+  color: white;
+}
+
+.priority-student {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.priority-student strong {
+  font-size: 1.125rem;
+  color: #1f2937;
+}
+
+.student-class {
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.priority-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.priority-description {
+  color: #374151;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.6;
+}
+
+.priority-recommendation {
+  color: #1f2937;
+  margin: 0.75rem 0 0 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 0.375rem;
+  line-height: 1.6;
+}
+
+.priority-data {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.priority-data span {
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0.25rem;
+}
+
+/* 생활 리듬 & 학습 분위기 분석 */
+.pattern-analysis-section {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.pattern-analysis-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+}
+
+.pattern-subsection {
+  margin-bottom: 2rem;
+}
+
+.pattern-subsection:last-child {
+  margin-bottom: 0;
+}
+
+.pattern-subsection h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 1rem 0;
+}
+
+.day-pattern-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.day-pattern-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.day-label {
+  min-width: 60px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.day-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bar-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bar-label {
+  min-width: 50px;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 24px;
+  background: #f3f4f6;
+  border-radius: 0.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 0.25rem;
+  transition: width 0.3s;
+}
+
+.bar-fill.late {
+  background: #f59e0b;
+}
+
+.bar-fill.early-leave {
+  background: #ef4444;
+}
+
+.bar-fill.absent {
+  background: #dc2626;
+}
+
+.bar-value {
+  position: absolute;
+  right: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #1f2937;
+  z-index: 1;
+}
+
+.pattern-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 0.375rem;
+  color: #1e40af;
+  line-height: 1.6;
+}
+
+.pattern-insight strong {
+  font-weight: 600;
+}
+
+.period-heatmap {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.heatmap-header {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  background: #f9fafb;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.heatmap-label {
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.heatmap-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: #e5e7eb;
+}
+
+.heatmap-metrics span {
+  padding: 0.75rem;
+  text-align: center;
+  background: #f9fafb;
+}
+
+.heatmap-row {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.heatmap-row:last-child {
+  border-bottom: none;
+}
+
+.heatmap-period {
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 600;
+  color: #374151;
+  background: #f9fafb;
+}
+
+.heatmap-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: #e5e7eb;
+}
+
+.heatmap-cell {
+  padding: 0.75rem;
+  text-align: center;
+  font-weight: 500;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  cursor: help;
+  background: #f3f4f6; /* 기본 배경색 추가 */
+  color: #1f2937; /* 기본 텍스트 색상 추가 */
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.05);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 홈스쿨링 및 장기 결석자 관리 */
+.home-school-section {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.home-school-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 1.5rem 0;
+}
+
+.home-school-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.home-school-alert {
+  border: 2px solid;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  background: #f0fdf4;
+}
+
+.home-school-alert.alert-home_school_return {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.home-school-alert.alert-absent_warning {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.alert-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.alert-student {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.alert-student strong {
+  font-size: 1.125rem;
+  color: #1f2937;
+}
+
+.risk-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.risk-badge.risk-high {
+  background: #ef4444;
+  color: white;
+}
+
+.risk-badge.risk-medium {
+  background: #f59e0b;
+  color: white;
+}
+
+.risk-badge.risk-low {
+  background: #10b981;
+  color: white;
+}
+
+.alert-content {
+  color: #374151;
+}
+
+.alert-message {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.6;
+}
+
+.alert-details {
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0.375rem;
+  margin-top: 0.75rem;
+  color: #374151; /* 텍스트 색상 명시 */
+}
+
+.alert-details p {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+  color: #374151; /* 텍스트 색상 명시 */
+}
+
+.alert-action {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1f2937;
+  font-weight: 500;
+}
+

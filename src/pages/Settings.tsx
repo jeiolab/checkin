@@ -325,30 +325,9 @@ export default function Settings() {
         console.warn('⚠️ [설정 저장] 주중 설정을 찾을 수 없습니다!');
       }
       
-      // 1. 전역 교시 시간 설정 저장 (모든 세션에 공통 적용)
+      // 전역 교시 시간 설정만 저장 (각 세션에서 로드 시 전역 설정을 우선 사용)
       globalPeriodSchedulesStorage.save(periodSchedules);
       console.log('✅ [설정 저장] 전역 교시 시간 설정 저장 완료');
-      
-      // 2. 모든 세션에 동일한 설정 적용
-      const sessions = sessionStorage.load();
-      console.log(`💾 [설정 저장] ${sessions.length}개 세션에 설정 적용 시작`);
-      
-      sessions.forEach(session => {
-        const existingConfig = configStorage.load(session.id);
-        const updatedConfig: AttendanceConfig = {
-          ...(existingConfig || {
-            semester: '1학기',
-            grade: 1,
-            class: 1,
-            dayPeriodRanges: [],
-            sessionId: session.id,
-          }),
-          periodSchedules,
-          sessionId: session.id,
-        };
-        configStorage.save(updatedConfig, session.id);
-        console.log(`✅ [설정 저장] 세션 "${session.name}" (${session.id}) 설정 업데이트 완료`);
-      });
       
       // 저장된 데이터 확인을 위해 다시 로드
       const savedGlobal = globalPeriodSchedulesStorage.load();
@@ -383,7 +362,7 @@ export default function Settings() {
       console.log('📢 [설정 저장] 이벤트 발생 (전역 설정)', event.detail);
       window.dispatchEvent(event);
       
-      setSavedMessage('교시 시간표가 모든 세션에 저장되었습니다. 출석부에 반영되었습니다.');
+      setSavedMessage('교시 시간표가 저장되었습니다. 출석부에 반영되었습니다.');
       setTimeout(() => setSavedMessage(''), 3000);
     } catch (error) {
       console.error('저장 오류:', error);

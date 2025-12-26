@@ -107,27 +107,36 @@ export default function UserManagement() {
       return;
     }
 
-    // Supabase로 사용자 생성
-    const result = await createUser(
-      sanitizeInput(userData.email.trim()),
-      userData.password,
-      {
-        name: sanitizeInput(userData.name.trim()),
-        role: userData.role,
-        grade: userData.grade,
-        class: userData.class,
-        subject: userData.subject ? sanitizeInput(userData.subject.trim()) : undefined,
-        studentId: userData.studentId,
+    try {
+      // Supabase로 사용자 생성
+      const result = await createUser(
+        sanitizeInput(userData.email.trim()),
+        userData.password,
+        {
+          name: sanitizeInput(userData.name.trim()),
+          role: userData.role,
+          grade: userData.grade,
+          class: userData.class,
+          subject: userData.subject ? sanitizeInput(userData.subject.trim()) : undefined,
+          studentId: userData.studentId,
+        }
+      );
+
+      if (result.error || !result.user) {
+        alert(`사용자 생성에 실패했습니다.\n\n오류: ${result.error || '알 수 없는 오류'}\n\n확인 사항:\n- 이메일이 이미 등록되어 있지 않은지 확인\n- 비밀번호가 요구사항을 만족하는지 확인\n- Supabase 설정에서 이메일 인증이 비활성화되어 있는지 확인`);
+        return;
       }
-    );
 
-    if (result.error || !result.user) {
-      alert(`사용자 생성에 실패했습니다.\n${result.error || '알 수 없는 오류'}`);
-      return;
+      // 성공 메시지 표시
+      alert(`사용자 "${result.user.name}"이(가) 성공적으로 생성되었습니다.`);
+      
+      await loadUsers(); // 목록 새로고침
+      setShowAddForm(false);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`사용자 생성 중 오류가 발생했습니다.\n\n${errorMessage}`);
+      console.error('[USER MANAGEMENT] 사용자 생성 예외:', error);
     }
-
-    await loadUsers(); // 목록 새로고침
-    setShowAddForm(false);
   };
 
   const handleUpdateUser = async (userData: Omit<User, 'id' | 'createdAt'>) => {

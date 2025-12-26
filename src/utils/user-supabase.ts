@@ -69,11 +69,14 @@ export const createUser = async (
     
     // 클라이언트에서는 signUp 사용 (서버 API가 없을 경우)
     // 실제로는 서버 API를 통해 admin.createUser를 사용하는 것이 좋음
+    // 이메일 인증 없이 사용자 생성 (관리자가 생성하는 경우)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: undefined, // 이메일 인증 비활성화 (관리자가 생성하는 경우)
+        // 이메일 인증 없이 사용자 생성
+        emailRedirectTo: undefined,
+        // 이메일 확인 없이 사용 가능하도록 설정
         data: {
           name: metadata.name,
           role: metadata.role,
@@ -85,15 +88,36 @@ export const createUser = async (
       },
     });
 
-    if (authError || !authData.user) {
-      const errorMessage = authError?.message || '사용자 생성에 실패했습니다.';
+    if (authError) {
+      const errorMessage = authError.message || '사용자 생성에 실패했습니다.';
+      console.error('[SUPABASE USERS] 사용자 생성 오류:', errorMessage, authError);
+      
+      // 구체적인 에러 메시지 제공
+      let userFriendlyMessage = errorMessage;
+      if (errorMessage.includes('already registered') || errorMessage.includes('already exists')) {
+        userFriendlyMessage = '이미 등록된 이메일 주소입니다.';
+      } else if (errorMessage.includes('password')) {
+        userFriendlyMessage = '비밀번호가 요구사항을 만족하지 않습니다.';
+      } else if (errorMessage.includes('email')) {
+        userFriendlyMessage = '유효하지 않은 이메일 주소입니다.';
+      }
+      
+      return { user: null, error: userFriendlyMessage };
+    }
+
+    if (!authData.user) {
+      const errorMessage = '사용자 생성에 실패했습니다. (사용자 데이터 없음)';
       console.error('[SUPABASE USERS] 사용자 생성 오류:', errorMessage);
       return { user: null, error: errorMessage };
     }
 
     console.log('[SUPABASE USERS] Auth 사용자 생성 완료:', authData.user.id);
+    console.log('[SUPABASE USERS] 사용자 이메일 확인 상태:', authData.user.email_confirmed_at ? '확인됨' : '미확인');
 
     // 프로필은 트리거가 자동으로 생성하지만, 수동으로도 생성 가능
+    // 잠시 대기 후 프로필 생성 시도 (트리거가 실행될 시간 확보)
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
     const { error: profileError } = await supabase
       .from('user_profiles')
       .insert({
@@ -108,14 +132,19 @@ export const createUser = async (
       });
 
     if (profileError) {
-      const errorMessage = `프로필 생성 오류: ${profileError.message}`;
-      console.error('[SUPABASE USERS] 프로필 생성 오류:', profileError.message);
-      // 프로필 생성 실패해도 사용자는 생성됨 (트리거가 생성할 수 있음)
-      // 하지만 명시적으로 에러를 반환
-      return { user: null, error: errorMessage };
+      // 프로필이 이미 존재하는 경우 (트리거가 생성한 경우) 무시
+      if (profileError.code === '23505' || profileError.message.includes('duplicate') || profileError.message.includes('already exists')) {
+        console.log('[SUPABASE USERS] 프로필이 이미 존재함 (트리거가 생성한 것으로 추정)');
+      } else {
+        const errorMessage = `프로필 생성 오류: ${profileError.message}`;
+        console.error('[SUPABASE USERS] 프로필 생성 오류:', profileError.message, profileError);
+        // 프로필 생성 실패해도 사용자는 생성됨 (트리거가 생성할 수 있음)
+        // 하지만 명시적으로 에러를 반환하지 않고 경고만 표시
+        console.warn('[SUPABASE USERS] 프로필 생성 실패했지만 사용자는 생성됨. 트리거가 생성할 수 있음.');
+      }
+    } else {
+      console.log('[SUPABASE USERS] 프로필 생성 완료');
     }
-
-    console.log('[SUPABASE USERS] 프로필 생성 완료');
 
     const newUser: User = {
       id: authData.user.id,

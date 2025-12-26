@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { format, parseISO, getYear } from 'date-fns';
 import { Plus, Trash2, Edit2, Calendar } from 'lucide-react';
-import { configStorage, semesterScheduleStorage, holidayStorage, sessionStorage, attendanceStorage } from '../utils/storage';
+import { configStorage, globalPeriodSchedulesStorage, semesterScheduleStorage, holidayStorage, sessionStorage, attendanceStorage } from '../utils/storage';
 import { sortSchedules } from '../utils/semester';
 import { getDayTypeLabel } from '../utils/dayType';
 import { getKoreanHolidaysForYears, getHolidayName } from '../utils/koreanHolidays';
@@ -77,6 +77,23 @@ export default function Settings() {
   const loadConfig = () => {
     if (!activeSession) return;
     
+    // 전역 교시 시간 설정 우선 로드
+    const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+    if (globalPeriodSchedules && globalPeriodSchedules.length > 0) {
+      console.log('📥 [설정 로드] 전역 교시 시간 설정 발견:', globalPeriodSchedules);
+      setPeriodSchedules(globalPeriodSchedules);
+      
+      // 세션별 설정도 로드 (semester, grade, class 등)
+      const config = configStorage.load(activeSession.id);
+      if (config) {
+        setSemester(config.semester);
+        setGrade(config.grade);
+        setClassNum(config.class);
+      }
+      return;
+    }
+    
+    // 전역 설정이 없으면 세션별 설정 로드
     const config = configStorage.load(activeSession.id);
     if (config) {
       // 기존 설정이 있으면 semester, grade, class 유지
@@ -289,23 +306,8 @@ export default function Settings() {
       return;
     }
 
-    if (!activeSession) {
-      setSavedMessage('활성 세션이 없습니다.');
-      setTimeout(() => setSavedMessage(''), 3000);
-      return;
-    }
-
-    const config: AttendanceConfig = {
-      semester,
-      grade,
-      class: classNum,
-      dayPeriodRanges: [],
-      periodSchedules,
-      sessionId: activeSession.id,
-    };
-    
     try {
-      console.log('💾 [설정 저장] 시작', { sessionId: activeSession.id });
+      console.log('💾 [설정 저장] 전역 교시 시간 설정 저장 시작');
       console.log('💾 [설정 저장] periodSchedules 전체:', periodSchedules);
       
       // 주중 설정 확인
@@ -323,20 +325,37 @@ export default function Settings() {
         console.warn('⚠️ [설정 저장] 주중 설정을 찾을 수 없습니다!');
       }
       
-      // 저장할 config 확인
-      console.log('💾 [설정 저장] 저장할 config:', {
-        periodSchedules: config.periodSchedules,
-        weekdayInConfig: config.periodSchedules.find(ps => ps.dayType === 'weekday' && !ps.grade)
+      // 1. 전역 교시 시간 설정 저장 (모든 세션에 공통 적용)
+      globalPeriodSchedulesStorage.save(periodSchedules);
+      console.log('✅ [설정 저장] 전역 교시 시간 설정 저장 완료');
+      
+      // 2. 모든 세션에 동일한 설정 적용
+      const sessions = sessionStorage.load();
+      console.log(`💾 [설정 저장] ${sessions.length}개 세션에 설정 적용 시작`);
+      
+      sessions.forEach(session => {
+        const existingConfig = configStorage.load(session.id);
+        const updatedConfig: AttendanceConfig = {
+          ...(existingConfig || {
+            semester: '1학기',
+            grade: 1,
+            class: 1,
+            dayPeriodRanges: [],
+            sessionId: session.id,
+          }),
+          periodSchedules,
+          sessionId: session.id,
+        };
+        configStorage.save(updatedConfig, session.id);
+        console.log(`✅ [설정 저장] 세션 "${session.name}" (${session.id}) 설정 업데이트 완료`);
       });
       
-      configStorage.save(config, activeSession.id);
-      
       // 저장된 데이터 확인을 위해 다시 로드
-      const savedConfig = configStorage.load(activeSession.id);
-      console.log('💾 [설정 저장] 저장된 설정 확인', savedConfig);
+      const savedGlobal = globalPeriodSchedulesStorage.load();
+      console.log('💾 [설정 저장] 저장된 전역 설정 확인', savedGlobal);
       
-      if (savedConfig && savedConfig.periodSchedules) {
-        const savedWeekday = savedConfig.periodSchedules.find(ps => ps.dayType === 'weekday' && !ps.grade);
+      if (savedGlobal) {
+        const savedWeekday = savedGlobal.find(ps => ps.dayType === 'weekday' && !ps.grade);
         if (savedWeekday) {
           console.log('💾 [설정 저장] 주중(weekday) 저장 후:', {
             startPeriod: savedWeekday.startPeriod ?? 1,
@@ -344,20 +363,27 @@ export default function Settings() {
             periodsCount: savedWeekday.periods.length
           });
         }
-        setPeriodSchedules(savedConfig.periodSchedules);
+        setPeriodSchedules(savedGlobal);
       }
       
       // 설정 변경 이벤트 발생 (출석부에 동기화)
       const event = new CustomEvent('attendanceConfigUpdated', { 
         detail: { 
-          sessionId: activeSession.id,
-          config: savedConfig || config
+          sessionId: null, // 전역 설정이므로 sessionId 없음
+          config: {
+            semester,
+            grade,
+            class: classNum,
+            dayPeriodRanges: [],
+            periodSchedules: savedGlobal || periodSchedules,
+            sessionId: activeSession?.id || '',
+          }
         } 
       });
-      console.log('📢 [설정 저장] 이벤트 발생', event.detail);
+      console.log('📢 [설정 저장] 이벤트 발생 (전역 설정)', event.detail);
       window.dispatchEvent(event);
       
-      setSavedMessage('교시 시간표가 저장되었습니다. 출석부에 반영되었습니다.');
+      setSavedMessage('교시 시간표가 모든 세션에 저장되었습니다. 출석부에 반영되었습니다.');
       setTimeout(() => setSavedMessage(''), 3000);
     } catch (error) {
       console.error('저장 오류:', error);

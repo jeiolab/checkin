@@ -1,4 +1,4 @@
-import type { Student, AttendanceRecord, AttendanceConfig, SemesterSchedule, Session, WeeklyReport, User, PendingAttendance } from '../types';
+import type { Student, AttendanceRecord, AttendanceConfig, SemesterSchedule, Session, WeeklyReport, User, PendingAttendance, PeriodSchedule } from '../types';
 import { createSession } from './session';
 import { hashPassword } from './security';
 import { format } from 'date-fns';
@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   STUDENTS: 'neungju_students',
   ATTENDANCE_RECORDS: 'neungju_attendance_records',
   ATTENDANCE_CONFIG: 'neungju_attendance_config',
+  GLOBAL_PERIOD_SCHEDULES: 'neungju_global_period_schedules', // 전역 교시 시간 설정
   SEMESTER_SCHEDULES: 'neungju_semester_schedules',
   HOLIDAYS: 'neungju_holidays',
   SESSIONS: 'neungju_sessions',
@@ -115,6 +116,26 @@ export const attendanceStorage = {
   },
 };
 
+// 전역 교시 시간 설정 저장/로드
+export const globalPeriodSchedulesStorage = {
+  save: (periodSchedules: PeriodSchedule[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.GLOBAL_PERIOD_SCHEDULES, JSON.stringify(periodSchedules));
+    } catch (error) {
+      console.error('Failed to save global period schedules:', error);
+    }
+  },
+  load: (): PeriodSchedule[] | null => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.GLOBAL_PERIOD_SCHEDULES);
+      return data ? safeJsonParseNullable<PeriodSchedule[]>(data, null) : null;
+    } catch (error) {
+      console.error('Failed to load global period schedules:', error);
+      return null;
+    }
+  },
+};
+
 // 출석부 설정 저장/로드 (세션별)
 export const configStorage = {
   save: (config: AttendanceConfig, sessionId?: string) => {
@@ -133,11 +154,33 @@ export const configStorage = {
         // 세션별로 로드
         const key = `${STORAGE_KEYS.ATTENDANCE_CONFIG}_${sessionId}`;
         const data = localStorage.getItem(key);
-        return data ? safeJsonParseNullable<AttendanceConfig>(data, null) : null;
+        const config = data ? safeJsonParseNullable<AttendanceConfig>(data, null) : null;
+        
+        // 전역 교시 시간 설정이 있으면 우선 적용
+        const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+        if (globalPeriodSchedules && config) {
+          return {
+            ...config,
+            periodSchedules: globalPeriodSchedules,
+          };
+        }
+        
+        return config;
       } else {
         // 기본 로드 (하위 호환성)
         const data = localStorage.getItem(STORAGE_KEYS.ATTENDANCE_CONFIG);
-        return data ? safeJsonParseNullable<AttendanceConfig>(data, null) : null;
+        const config = data ? safeJsonParseNullable<AttendanceConfig>(data, null) : null;
+        
+        // 전역 교시 시간 설정이 있으면 우선 적용
+        const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+        if (globalPeriodSchedules && config) {
+          return {
+            ...config,
+            periodSchedules: globalPeriodSchedules,
+          };
+        }
+        
+        return config;
       }
     } catch (error) {
       console.error('Failed to load config:', error);

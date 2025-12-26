@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, getYear, getMonth } from 'date-fns';
 import { CheckSquare, Trash2, AlertCircle, CheckCircle2, XCircle, Printer, Eye, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { studentStorage, attendanceStorage, configStorage, semesterScheduleStorage, holidayStorage, sessionStorage } from '../utils/storage';
+import { studentStorage, attendanceStorage, configStorage, globalPeriodSchedulesStorage, semesterScheduleStorage, holidayStorage, sessionStorage } from '../utils/storage';
 import { getSemesterForDate, sortSchedules } from '../utils/semester';
 import { getDayType, getDayTypeLabel } from '../utils/dayType';
 import { getActiveSession, getSessionForDate } from '../utils/session';

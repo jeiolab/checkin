@@ -4,6 +4,7 @@ import { getSemesterForDate } from './semester';
 
 /**
  * 날짜의 유형 판단 (주중, 주말, 휴일, 방학)
+ * 방학 기간 중 주중에만 방학 시간표 적용, 주말에는 주말 시간표 적용
  */
 export const getDayType = (
   date: string,
@@ -18,15 +19,15 @@ export const getDayType = (
       return 'holiday';
     }
     
-    // 방학 확인
+    // 주말 확인 (방학 기간이든 아니든 주말이면 주말 시간표 사용)
+    if (isWeekend(dateObj)) {
+      return 'weekend';
+    }
+    
+    // 방학 확인 (주중이면서 방학 기간이면 방학 시간표 사용)
     const semesterSchedule = getSemesterForDate(date, schedules);
     if (semesterSchedule && (semesterSchedule.type === '여름방학' || semesterSchedule.type === '겨울방학')) {
       return 'vacation';
-    }
-    
-    // 주말 확인
-    if (isWeekend(dateObj)) {
-      return 'weekend';
     }
     
     // 주중

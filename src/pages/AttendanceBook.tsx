@@ -186,15 +186,57 @@ export default function AttendanceBook() {
       
       console.log('📥 [출석부] 세션 정보', { eventSessionId, targetSessionId, selectedDate });
       
-      // 이벤트에서 전달된 config를 우선 사용, 없으면 localStorage에서 로드
-      const config = eventConfig || configStorage.load(targetSessionId);
-      console.log('📥 [출석부] 로드된 설정', config);
+      // 전역 교시 시간 설정 우선 확인
+      const globalPeriodSchedules = globalPeriodSchedulesStorage.load();
+      console.log('📥 [출석부] 전역 교시 시간 설정', globalPeriodSchedules);
       
-      // schedules 상태를 사용하여 loadPeriodsForDate 호출
-      if (schedules.length > 0 && config) {
-        console.log('📥 [출석부] loadPeriodsForDate 호출', { selectedDate, config, schedulesLength: schedules.length });
-        loadPeriodsForDate(selectedDate, config, schedules);
-      } else if (schedules.length === 0) {
+      if (globalPeriodSchedules && globalPeriodSchedules.length > 0) {
+        const weekdaySchedule = globalPeriodSchedules.find(ps => ps.dayType === 'weekday' && !ps.grade);
+        if (weekdaySchedule) {
+          console.log('📥 [출석부] 전역 설정의 주중(weekday) 정보:', {
+            startPeriod: weekdaySchedule.startPeriod,
+            endPeriod: weekdaySchedule.endPeriod,
+            hasStartPeriod: weekdaySchedule.startPeriod !== undefined,
+            hasEndPeriod: weekdaySchedule.endPeriod !== undefined,
+            periodsCount: weekdaySchedule.periods.length
+          });
+        }
+      }
+      
+      // 이벤트에서 전달된 config를 우선 사용, 없으면 localStorage에서 로드
+      let config = eventConfig || configStorage.load(targetSessionId);
+      
+      // 전역 설정이 있으면 config에 병합
+      if (globalPeriodSchedules && globalPeriodSchedules.length > 0) {
+        if (config) {
+          config = {
+            ...config,
+            periodSchedules: globalPeriodSchedules,
+          };
+          console.log('📥 [출석부] 전역 설정을 config에 병합 완료');
+        } else {
+          // config가 없으면 전역 설정만으로 구성
+          config = {
+            semester: '1학기',
+            grade: 1,
+            class: 1,
+            dayPeriodRanges: [],
+            periodSchedules: globalPeriodSchedules,
+            sessionId: targetSessionId || '',
+          };
+          console.log('📥 [출석부] 전역 설정만으로 config 생성');
+        }
+      }
+      
+      console.log('📥 [출석부] 최종 설정', config);
+      
+      // schedules를 직접 로드하여 사용 (상태 의존성 제거)
+      const loadedSchedules = sortSchedules(semesterScheduleStorage.load());
+      
+      if (loadedSchedules.length > 0 && config) {
+        console.log('📥 [출석부] loadPeriodsForDate 호출', { selectedDate, config, schedulesLength: loadedSchedules.length });
+        loadPeriodsForDate(selectedDate, config, loadedSchedules);
+      } else if (loadedSchedules.length === 0) {
         console.warn('⚠️ [출석부] schedules가 아직 로드되지 않음');
       } else {
         console.warn('⚠️ [출석부] 설정이 없음');

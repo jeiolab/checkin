@@ -23,12 +23,15 @@ FROM pg_tables
 WHERE tablename = 'user_profiles';
 
 -- 3. 사용자가 자신의 프로필을 읽을 수 있도록 RLS 정책 생성/수정
--- 기존 정책이 있으면 삭제하고 새로 생성
-DROP POLICY IF EXISTS "Users can read their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON user_profiles;
-DROP POLICY IF EXISTS "Enable insert for authenticated users" ON user_profiles;
-DROP POLICY IF EXISTS "Enable update for authenticated users" ON user_profiles;
+-- 기존 정책 모두 삭제 (안전하게)
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'user_profiles') LOOP
+        EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(r.policyname) || ' ON user_profiles';
+    END LOOP;
+END $$;
 
 -- 자신의 프로필 읽기 정책
 CREATE POLICY "Users can read their own profile"

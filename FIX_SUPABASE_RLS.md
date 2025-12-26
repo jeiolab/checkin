@@ -22,12 +22,15 @@ GET https://vgjeztzzguzkbotjgyct.supabase.co/rest/v1/user_profiles?select=*&id=e
 또는 아래 SQL을 직접 실행하세요:
 
 ```sql
--- 기존 정책 삭제
-DROP POLICY IF EXISTS "Users can read their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Users can update their own profile" ON user_profiles;
-DROP POLICY IF EXISTS "Enable read access for authenticated users" ON user_profiles;
-DROP POLICY IF EXISTS "Enable insert for authenticated users" ON user_profiles;
-DROP POLICY IF EXISTS "Enable update for authenticated users" ON user_profiles;
+-- 기존 정책 모두 삭제 (안전하게)
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'user_profiles') LOOP
+        EXECUTE 'DROP POLICY IF EXISTS ' || quote_ident(r.policyname) || ' ON user_profiles';
+    END LOOP;
+END $$;
 
 -- 자신의 프로필 읽기 정책
 CREATE POLICY "Users can read their own profile"

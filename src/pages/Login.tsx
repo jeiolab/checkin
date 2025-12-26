@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react';
-import { login } from '../utils/auth';
+import { login } from '../utils/auth-supabase';
 import './Login.css';
 
 export default function Login() {

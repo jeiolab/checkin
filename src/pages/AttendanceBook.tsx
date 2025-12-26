@@ -5,7 +5,7 @@ import { studentStorage, attendanceStorage, configStorage, semesterScheduleStora
 import { getSemesterForDate, sortSchedules } from '../utils/semester';
 import { getDayType, getDayTypeLabel } from '../utils/dayType';
 import { getActiveSession, getSessionForDate } from '../utils/session';
-import { getCurrentUser, canEditAttendance, canApproveAttendance } from '../utils/auth';
+import { getCurrentUser, canEditAttendance, canApproveAttendance } from '../utils/auth-supabase';
 import { approvePendingAttendance, rejectPendingAttendance, getPendingAttendances } from '../utils/pendingAttendance';
 import type { Student, AttendanceRecord, Period, AttendanceStatus, SemesterSchedule, PendingAttendance, User, AttendanceConfig } from '../types';
 import { isHomeSchoolPeriod, isFriendshipClassPeriod, getStatusColor, getStatusLabel } from '../utils/attendance';

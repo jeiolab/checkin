@@ -7,7 +7,7 @@ import { getDayTypeLabel } from '../utils/dayType';
 import { getKoreanHolidaysForYears, getHolidayName } from '../utils/koreanHolidays';
 import { getActiveSession, sortSessions } from '../utils/session';
 import { switchSession, createAndActivateSession, deleteSession } from '../utils/sessionManager';
-import { getCurrentUser, canEditSettings } from '../utils/auth';
+import { getCurrentUser, canEditSettings } from '../utils/auth-supabase';
 import type { AttendanceConfig, Period, SemesterSchedule, PeriodSchedule, DayType, Session, User } from '../types';
 import './Settings.css';
 

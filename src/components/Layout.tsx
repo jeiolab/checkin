@@ -1,8 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Home, BookOpen, Users, BarChart3, Settings, FileText, LogOut, User as UserIcon, UserCog } from 'lucide-react';
-import { getCurrentUser, logout } from '../utils/auth';
-import { hasPermission } from '../utils/auth';
+import { getCurrentUser, logout, hasPermission } from '../utils/auth-supabase';
 import type { Permission, User } from '../types';
 import './Layout.css';
 

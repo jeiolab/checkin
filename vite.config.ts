@@ -63,7 +63,7 @@ export default defineConfig({
   },
   // 개발 서버 최적화
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'date-fns', 'lucide-react'],
+    include: ['react', 'react-dom', 'react-router-dom', 'date-fns', 'lucide-react', '@supabase/supabase-js'],
   },
 })
 

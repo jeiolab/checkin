@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, CheckCircle2, XCircle } from 'lucide-react';
-import { getCurrentUser, logout } from '../utils/auth';
-import { userStorage } from '../utils/storage';
-import { hashPassword, verifyPassword, validatePasswordStrength } from '../utils/security';
+import { getCurrentUser, logout } from '../utils/auth-supabase';
+import { changePassword } from '../utils/user-supabase';
+import { validatePasswordStrength } from '../utils/security';
+import { supabase } from '../utils/supabase';
 import './ChangePassword.css';
 
 export default function ChangePassword() {
@@ -32,18 +33,19 @@ export default function ChangePassword() {
         return;
       }
 
-      // 현재 비밀번호 확인
-      const users = await userStorage.load();
-      const user = users.find(u => u.id === currentUser.id);
-      if (!user || !user.password) {
-        setError('사용자 정보를 찾을 수 없습니다.');
+      // 현재 비밀번호 확인 (Supabase Auth)
+      if (!currentUser.email) {
+        setError('이메일 정보를 찾을 수 없습니다.');
         setLoading(false);
         return;
       }
 
-      // 현재 비밀번호 검증
-      const isCurrentPasswordValid = await verifyPassword(currentPassword, user.password);
-      if (!isCurrentPasswordValid) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: currentUser.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
         setError('현재 비밀번호가 올바르지 않습니다.');
         setCurrentPassword('');
         setLoading(false);
@@ -67,8 +69,7 @@ export default function ChangePassword() {
       }
 
       // 새 비밀번호와 현재 비밀번호가 같은지 확인
-      const isSamePassword = await verifyPassword(newPassword, user.password);
-      if (isSamePassword) {
+      if (newPassword === currentPassword) {
         setError('새 비밀번호는 현재 비밀번호와 다르게 설정해야 합니다.');
         setNewPassword('');
         setConfirmPassword('');
@@ -84,18 +85,15 @@ export default function ChangePassword() {
         return;
       }
 
-      // 비밀번호 업데이트
-      const updatedUsers = await Promise.all(users.map(async u => {
-        if (u.id === user.id) {
-          return {
-            ...u,
-            password: await hashPassword(newPassword),
-          };
-        }
-        return u;
-      }));
+      // 비밀번호 업데이트 (Supabase Auth)
+      const success = await changePassword(newPassword);
+      
+      if (!success) {
+        setError('비밀번호 변경에 실패했습니다. 다시 시도해주세요.');
+        setLoading(false);
+        return;
+      }
 
-      await userStorage.save(updatedUsers);
       setSuccess(true);
       
       // 2초 후 로그아웃하여 다시 로그인하도록 유도

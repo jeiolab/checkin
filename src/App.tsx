@@ -3,7 +3,7 @@ import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import { initializeSampleData } from './utils/storage';
-import { getCurrentUser } from './utils/auth';
+import { getCurrentUser } from './utils/auth-supabase';
 import type { User } from './types';
 import './App.css';
 import './styles/mobile.css';

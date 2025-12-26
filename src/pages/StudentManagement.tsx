@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Upload, Download, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { studentStorage } from '../utils/storage';
 import { parseExcelFile, downloadExcelTemplate } from '../utils/excel';
-import { getCurrentUser, hasPermission } from '../utils/auth';
+import { getCurrentUser, hasPermission } from '../utils/auth-supabase';
 import type { Student, User } from '../types';
 import './StudentManagement.css';
 

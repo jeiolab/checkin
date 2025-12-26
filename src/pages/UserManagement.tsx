@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { Trash2, Edit2, Search, UserPlus, Shield, GraduationCap, BookOpen, Users, Mail, Calendar, Clock, MoreVertical } from 'lucide-react';
-import { userStorage } from '../utils/storage';
-import { getCurrentUser, canEditSettings } from '../utils/auth';
-import { sanitizeInput, validateEmail, validatePasswordStrength, validateUserName, hashPassword } from '../utils/security';
+import { getAllUsers, createUser, updateUser, deleteUser } from '../utils/user-supabase';
+import { getCurrentUser, canEditSettings } from '../utils/auth-supabase';
+import { sanitizeInput, validateEmail, validatePasswordStrength, validateUserName } from '../utils/security';
 import type { User, UserRole, Grade, Class } from '../types';
 import './UserManagement.css';
 
@@ -156,9 +156,19 @@ export default function UserManagement() {
       return;
     }
 
-    if (confirm('이 사용자를 삭제하시겠습니까?')) {
-      await saveUsers(users.filter(u => u.id !== id));
+    if (!confirm('이 사용자를 삭제하시겠습니까?')) {
+      return;
     }
+
+    // Supabase로 사용자 삭제
+    const success = await deleteUser(id);
+    
+    if (!success) {
+      alert('사용자 삭제에 실패했습니다.');
+      return;
+    }
+
+    await loadUsers(); // 목록 새로고침
   };
 
   const getRoleLabel = (role: UserRole) => {
@@ -443,9 +453,7 @@ function UserForm({ user, onSave, onCancel }: UserFormProps) {
     const userData: Omit<User, 'id' | 'createdAt'> = {
       name: sanitizeInput(formData.name.trim()),
       role: formData.role,
-      password: formData.password 
-        ? await hashPassword(formData.password) 
-        : (user?.password || ''),
+      password: formData.password || undefined, // Supabase에서는 비밀번호를 별도로 관리
       email: formData.email ? sanitizeInput(formData.email.trim()) : undefined,
       grade: formData.grade,
       class: formData.class,

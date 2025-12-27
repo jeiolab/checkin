@@ -19,7 +19,7 @@ BEGIN
   RETURN QUERY
   SELECT 
     au.id,
-    au.email,
+    au.email::text,  -- varchar를 text로 캐스팅
     au.created_at,
     au.last_sign_in_at,
     au.raw_user_meta_data as user_metadata,
@@ -50,7 +50,7 @@ BEGIN
   RETURN QUERY
   SELECT 
     au.id,
-    au.email,
+    au.email::text,  -- varchar를 text로 캐스팅
     au.created_at,
     au.last_sign_in_at,
     au.raw_user_meta_data as user_metadata

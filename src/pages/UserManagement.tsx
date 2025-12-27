@@ -600,33 +600,36 @@ function UserSelectModal({
       totalUsers: allUsers.length, 
       searchQuery, 
       filterRole,
-      isLoading
+      isLoading,
+      allUsersSample: allUsers.slice(0, 3).map(u => ({ id: u.id, name: u.name, email: u.email, role: u.role }))
     });
     
     if (isLoading) {
+      console.log('[USER SELECT MODAL] 로딩 중이므로 빈 배열 반환');
+      return [];
+    }
+    
+    if (allUsers.length === 0) {
+      console.log('[USER SELECT MODAL] 사용자 목록이 비어있음');
       return [];
     }
     
     const filtered = allUsers.filter(user => {
       // 현재 사용자 제외
-      if (user.id === currentUser?.id) return false;
+      if (user.id === currentUser?.id) {
+        return false;
+      }
       
       // 검색어 필터링 (이름, 이메일, 역할로 검색)
-      if (searchQuery.trim()) {
+      if (searchQuery && searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
-        const nameMatch = (user.name || '').toLowerCase().includes(query);
-        const emailMatch = (user.email || '').toLowerCase().includes(query);
+        const userName = (user.name || '').toLowerCase();
+        const userEmail = (user.email || '').toLowerCase();
         const roleLabel = getRoleLabelLocal(user.role).toLowerCase();
-        const roleMatch = roleLabel.includes(query);
         
-        console.log('[USER SELECT MODAL] 검색 매칭', {
-          userId: user.id,
-          name: user.name,
-          nameMatch,
-          emailMatch,
-          roleMatch,
-          query
-        });
+        const nameMatch = userName.includes(query);
+        const emailMatch = userEmail.includes(query);
+        const roleMatch = roleLabel.includes(query);
         
         if (!nameMatch && !emailMatch && !roleMatch) {
           return false;
@@ -643,8 +646,9 @@ function UserSelectModal({
     
     console.log('[USER SELECT MODAL] 필터링 완료', { 
       filteredCount: filtered.length,
-      searchQuery,
-      sampleUsers: filtered.slice(0, 3).map(u => ({ name: u.name, email: u.email, role: u.role }))
+      searchQuery: searchQuery || '(없음)',
+      filterRole,
+      sampleUsers: filtered.slice(0, 5).map(u => ({ name: u.name, email: u.email, role: u.role }))
     });
     
     return filtered;
@@ -691,7 +695,6 @@ function UserSelectModal({
       <div className="modal-content user-select-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3>사용자 선택 및 역할 부여</h3>
-          <p className="modal-subtitle">Supabase auth.users에서 사용자를 검색하여 user_profiles에 추가하고 역할을 부여합니다</p>
         </div>
         
         <div className="user-select-controls">

@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 /**
  * auth.users에서 모든 사용자 가져오기 (RPC 함수 사용)
  * Supabase의 auth.users 테이블에서 모든 사용자 정보를 가져옵니다
+ * RPC 함수가 없으면 user_profiles에서 사용자를 가져옵니다 (폴백)
  */
 export const getAllAuthUsers = async (): Promise<User[]> => {
   try {
@@ -18,12 +19,41 @@ export const getAllAuthUsers = async (): Promise<User[]> => {
     const { data, error } = await supabase.rpc('get_all_auth_users');
 
     if (error) {
-      console.error('[SUPABASE AUTH USERS] RPC 호출 오류:', error.message, error);
-      // RPC 함수가 없으면 빈 배열 반환
-      return [];
+      console.warn('[SUPABASE AUTH USERS] RPC 호출 오류 (폴백으로 user_profiles 사용):', error.message);
+      console.log('[SUPABASE AUTH USERS] user_profiles에서 사용자 조회로 폴백');
+      
+      // RPC 함수가 없으면 user_profiles에서 사용자 가져오기 (폴백)
+      const { data: profiles, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (profileError) {
+        console.error('[SUPABASE AUTH USERS] user_profiles 조회 오류:', profileError.message);
+        return [];
+      }
+
+      console.log('[SUPABASE AUTH USERS] user_profiles에서 조회된 사용자 수:', profiles?.length || 0);
+
+      const users: User[] = (profiles || []).map(profile => ({
+        id: profile.id,
+        name: profile.name || '이름 없음',
+        email: profile.email || '',
+        role: (profile.role || 'teacher') as UserRole,
+        grade: profile.grade as Grade | undefined,
+        class: profile.class as Class | undefined,
+        subject: profile.subject || undefined,
+        studentId: profile.student_id || undefined,
+        createdAt: profile.created_at || format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+        lastLogin: profile.updated_at || undefined,
+        hasProfile: true, // user_profiles에서 가져왔으므로 true
+      }));
+
+      console.log('[SUPABASE AUTH USERS] 폴백으로 변환된 사용자 수:', users.length);
+      return users;
     }
 
-    console.log('[SUPABASE AUTH USERS] 조회된 사용자 수:', data?.length || 0);
+    console.log('[SUPABASE AUTH USERS] RPC에서 조회된 사용자 수:', data?.length || 0);
 
     const users: User[] = (data || []).map((authUser: any) => ({
       id: authUser.id,
@@ -43,7 +73,31 @@ export const getAllAuthUsers = async (): Promise<User[]> => {
     return users;
   } catch (error) {
     console.error('[SUPABASE AUTH USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류', error);
-    return [];
+    // 예외 발생 시에도 폴백 시도
+    try {
+      console.log('[SUPABASE AUTH USERS] 예외 발생 후 폴백 시도');
+      const { data: profiles } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      return (profiles || []).map(profile => ({
+        id: profile.id,
+        name: profile.name || '이름 없음',
+        email: profile.email || '',
+        role: (profile.role || 'teacher') as UserRole,
+        grade: profile.grade as Grade | undefined,
+        class: profile.class as Class | undefined,
+        subject: profile.subject || undefined,
+        studentId: profile.student_id || undefined,
+        createdAt: profile.created_at || format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+        lastLogin: profile.updated_at || undefined,
+        hasProfile: true,
+      }));
+    } catch (fallbackError) {
+      console.error('[SUPABASE AUTH USERS] 폴백도 실패:', fallbackError);
+      return [];
+    }
   }
 };
 

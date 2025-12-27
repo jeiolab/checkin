@@ -51,6 +51,7 @@ CREATE FUNCTION get_auth_user_by_id(user_id uuid)
 RETURNS TABLE (
   id uuid,
   email text,
+  name text,
   created_at timestamptz,
   last_sign_in_at timestamptz,
   user_metadata jsonb
@@ -64,10 +65,16 @@ BEGIN
   SELECT 
     au.id,
     au.email::text,  -- varchar를 text로 캐스팅
+    COALESCE(
+      up.name,  -- user_profiles의 name이 있으면 우선 사용
+      au.raw_user_meta_data->>'name',  -- 없으면 auth.users의 user_metadata에서 name 가져오기
+      SPLIT_PART(au.email::text, '@', 1)  -- 없으면 이메일의 @ 앞부분
+    )::text as name,
     au.created_at,
     au.last_sign_in_at,
     au.raw_user_meta_data as user_metadata
   FROM auth.users au
+  LEFT JOIN user_profiles up ON up.id = au.id
   WHERE au.id = user_id;
 END;
 $$;

@@ -301,91 +301,120 @@ export const addUsersToProfiles = async (
     let failCount = 0;
     const errors: string[] = [];
 
-    // 먼저 모든 사용자 정보를 한 번에 가져오기
+    // 먼저 모든 사용자 정보를 한 번에 가져오기 (RPC 함수 사용)
     const allAuthUsers = await getAllAuthUsers();
     const userMap = new Map(allAuthUsers.map(u => [u.id, u]));
 
+    console.log('[SUPABASE USERS] 가져온 사용자 맵 크기:', userMap.size);
+    console.log('[SUPABASE USERS] 처리할 사용자 ID:', userIds);
+
     for (const userId of userIds) {
       try {
+        let userEmail = '';
+        let userName = '';
+        
+        // 사용자 정보 가져오기
         const authUser = userMap.get(userId);
         
-        if (!authUser) {
+        if (authUser) {
+          // getAllAuthUsers에서 가져온 정보 사용
+          userEmail = authUser.email || '';
+          userName = authUser.name || '이름 없음';
+          console.log(`[SUPABASE USERS] 사용자 정보 (맵에서): ${userName} (${userEmail})`);
+        } else {
           // RPC 함수로 사용자 정보 가져오기 시도
+          console.log(`[SUPABASE USERS] 맵에 없음, RPC로 조회: ${userId}`);
           const { data: userData, error: rpcError } = await supabase.rpc('get_auth_user_by_id', { user_id: userId });
           
-          if (rpcError || !userData || userData.length === 0) {
+          if (rpcError) {
+            console.error(`[SUPABASE USERS] RPC 오류 (${userId}):`, rpcError);
+            
+            // RPC 오류 시 user_profiles에서 직접 조회 시도 (폴백)
+            console.log(`[SUPABASE USERS] RPC 실패, user_profiles에서 직접 조회 시도: ${userId}`);
+            const { data: profileData, error: profileError } = await supabase
+              .from('user_profiles')
+              .select('id, email, name')
+              .eq('id', userId)
+              .single();
+            
+            if (profileError || !profileData) {
+              const errorMsg = rpcError.message || '사용자 정보를 가져올 수 없습니다.';
+              console.error(`[SUPABASE USERS] 폴백 조회도 실패 (${userId}):`, profileError?.message || '데이터 없음');
+              errors.push(`${userId}: ${errorMsg}`);
+              failCount++;
+              continue;
+            }
+            
+            // 폴백 성공: user_profiles에서 가져온 정보 사용
+            userEmail = profileData.email || '';
+            userName = profileData.name || '이름 없음';
+            console.log(`[SUPABASE USERS] 사용자 정보 (폴백에서): ${userName} (${userEmail})`);
+          } else if (!userData || userData.length === 0) {
+            console.error(`[SUPABASE USERS] 사용자 데이터 없음: ${userId}`);
             errors.push(`${userId}: 사용자 정보를 가져올 수 없습니다.`);
             failCount++;
             continue;
-          }
-          
-          const userInfo = userData[0];
-          const userEmail = userInfo.email || '';
-          const userName = userInfo.user_metadata?.name || userInfo.email?.split('@')[0] || '이름 없음';
-
-          // user_profiles에 삽입 또는 업데이트
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .upsert({
-              id: userId,
-              email: userEmail,
-              name: userName,
-              role: role,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }, {
-              onConflict: 'id'
-            });
-
-          if (profileError) {
-            console.error(`[SUPABASE USERS] 프로필 추가 실패 (${userId}):`, profileError.message);
-            errors.push(`${userName || userId}: ${profileError.message}`);
-            failCount++;
           } else {
-            console.log(`[SUPABASE USERS] 프로필 추가 성공: ${userName} (${userEmail})`);
-            successCount++;
+            // RPC 성공: RPC에서 가져온 정보 사용
+            const userInfo = userData[0];
+            userEmail = userInfo.email || '';
+            // RPC 함수에서 name을 반환하므로 우선 사용
+            userName = userInfo.name || userInfo.user_metadata?.name || userInfo.email?.split('@')[0] || '이름 없음';
+            console.log(`[SUPABASE USERS] 사용자 정보 (RPC에서):`, {
+              id: userId,
+              name: userInfo.name,
+              email: userInfo.email,
+              metadataName: userInfo.user_metadata?.name,
+              finalName: userName
+            });
           }
+        }
+
+        if (!userEmail) {
+          console.error(`[SUPABASE USERS] 이메일 없음: ${userId}`);
+          errors.push(`${userName || userId}: 이메일 정보가 없습니다.`);
+          failCount++;
+          continue;
+        }
+
+        // user_profiles에 삽입 또는 업데이트
+        console.log(`[SUPABASE USERS] 프로필 업서트 시도: ${userName} (${userEmail})`);
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            id: userId,
+            email: userEmail,
+            name: userName,
+            role: role,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id'
+          });
+
+        if (profileError) {
+          console.error(`[SUPABASE USERS] 프로필 추가 실패 (${userId}):`, profileError);
+          const errorMsg = profileError.message || '프로필 추가 실패';
+          errors.push(`${userName || userId}: ${errorMsg}`);
+          failCount++;
         } else {
-          // 이미 가져온 사용자 정보 사용
-          const userEmail = authUser.email || '';
-          const userName = authUser.name || '이름 없음';
-
-          // user_profiles에 삽입 또는 업데이트
-          const { error: profileError } = await supabase
-            .from('user_profiles')
-            .upsert({
-              id: userId,
-              email: userEmail,
-              name: userName,
-              role: role,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            }, {
-              onConflict: 'id'
-            });
-
-          if (profileError) {
-            console.error(`[SUPABASE USERS] 프로필 추가 실패 (${userId}):`, profileError.message);
-            errors.push(`${userName || userId}: ${profileError.message}`);
-            failCount++;
-          } else {
-            console.log(`[SUPABASE USERS] 프로필 추가 성공: ${userName} (${userEmail})`);
-            successCount++;
-          }
+          console.log(`[SUPABASE USERS] 프로필 추가 성공: ${userName} (${userEmail})`);
+          successCount++;
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-        console.error(`[SUPABASE USERS] 사용자 추가 중 오류 (${userId}):`, errorMsg);
+        console.error(`[SUPABASE USERS] 사용자 추가 중 예외 (${userId}):`, error);
         errors.push(`${userId}: ${errorMsg}`);
         failCount++;
       }
     }
 
-    console.log('[SUPABASE USERS] 사용자 추가 완료:', { successCount, failCount });
+    console.log('[SUPABASE USERS] 사용자 추가 완료:', { successCount, failCount, errors });
     return { success: successCount, failed: failCount, errors };
   } catch (error) {
-    console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류', error);
-    return { success: 0, failed: userIds.length, errors: [error instanceof Error ? error.message : '알 수 없는 오류'] };
+    console.error('[SUPABASE USERS] 예외 발생:', error);
+    const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+    return { success: 0, failed: userIds.length, errors: [errorMsg] };
   }
 };
 

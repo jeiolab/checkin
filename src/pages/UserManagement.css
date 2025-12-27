@@ -299,6 +299,13 @@
   word-break: break-word;
 }
 
+.user-name .user-email-inline {
+  color: #6b7280;
+  font-weight: 400;
+  margin-left: 0.5rem;
+  font-size: 0.9375rem;
+}
+
 .role-badge {
   display: inline-flex;
   align-items: center;
@@ -973,6 +980,53 @@
 
 .user-email {
   word-break: break-all;
+}
+
+.user-email-inline {
+  color: #6b7280;
+  font-weight: 400;
+  margin-left: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.user-role-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.delete-user-btn-modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0.6;
+}
+
+.delete-user-btn-modal:hover:not(:disabled) {
+  background: #fee2e2;
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.delete-user-btn-modal:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.user-item {
+  position: relative;
 }
 
 .user-list-content .empty-state {

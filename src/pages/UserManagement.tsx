@@ -51,9 +51,10 @@ export default function UserManagement() {
     return users.filter(user => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const nameMatch = user.name.toLowerCase().includes(query);
-        const roleMatch = getRoleLabel(user.role).toLowerCase().includes(query);
-        if (!nameMatch && !roleMatch) return false;
+        const nameMatch = (user.name || '').toLowerCase().includes(query);
+        const emailMatch = (user.email || '').toLowerCase().includes(query);
+        // 이름과 이메일만 검색 (역할은 검색에서 제외)
+        if (!nameMatch && !emailMatch) return false;
       }
       if (filterRole !== 'all' && user.role !== filterRole) return false;
       return true;
@@ -340,13 +341,13 @@ export default function UserManagement() {
       <div className="filters-section">
         <div className="search-box">
           <Search size={18} />
-          <input
-            type="text"
-            placeholder="이름 또는 역할로 검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+            <input
+              type="text"
+              placeholder="이름 또는 이메일로 검색..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
         </div>
         <select
           value={filterRole}
@@ -376,10 +377,12 @@ export default function UserManagement() {
                   {getRoleIcon(user.role)}
                 </div>
                 <div className="user-info-main">
-                  <h3 className="user-name">{user.name}</h3>
-                  <span className={`role-badge role-${user.role}`}>
-                    {getRoleLabel(user.role)}
-                  </span>
+                  <h3 className="user-name">
+                    {user.name}
+                    {user.email && (
+                      <span className="user-email-inline">({user.email})</span>
+                    )}
+                  </h3>
                 </div>
                 <div className="user-menu">
                   <button
@@ -491,6 +494,7 @@ export default function UserManagement() {
             setSelectedRole(role);
           }}
           onAssignRole={handleAssignRole}
+          onDeleteUser={handleDeleteUser}
           onCancel={() => {
             console.log('[USER MANAGEMENT] 모달 취소');
             setShowUserSelectModal(false);
@@ -522,6 +526,7 @@ interface UserSelectModalProps {
   selectedRole: UserRole;
   onRoleChange: (role: UserRole) => void;
   onAssignRole: (userIds: string[], role: UserRole) => Promise<void>;
+  onDeleteUser: (userId: string) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -534,6 +539,7 @@ function UserSelectModal({
   selectedRole,
   onRoleChange,
   onAssignRole,
+  onDeleteUser,
   onCancel,
 }: UserSelectModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -552,15 +558,41 @@ function UserSelectModal({
         const authUsers = await getAllAuthUsers();
         console.log('[USER SELECT MODAL] auth.users에서 로드된 사용자 수:', authUsers.length);
         
-        // user_profiles에 있는 사용자도 가져오기 (프로필 존재 여부 확인용)
+        // user_profiles에 있는 사용자도 가져오기 (프로필 존재 여부 확인용 및 name 업데이트)
         const profileUsers = await getAllUsers();
         const profileIds = new Set(profileUsers.map(u => u.id));
+        const profileMap = new Map(profileUsers.map(u => [u.id, u]));
         
-        // hasProfile 플래그 추가
-        const usersWithProfile = authUsers.map(user => ({
-          ...user,
-          hasProfile: profileIds.has(user.id)
-        }));
+        // hasProfile 플래그 추가 및 프로필이 있으면 프로필의 name 사용
+        const usersWithProfile = authUsers.map(user => {
+          const profile = profileMap.get(user.id);
+          
+          // 프로필이 있으면 프로필의 name을 우선 사용 (user_profiles의 name이 가장 정확함)
+          // 프로필이 없으면 RPC에서 가져온 name 사용
+          let finalName = '이름 없음';
+          if (profile && profile.name && profile.name.trim()) {
+            finalName = profile.name.trim();
+          } else if (user.name && user.name !== '이름 없음' && user.name.trim()) {
+            finalName = user.name.trim();
+          } else if (user.email) {
+            finalName = user.email.split('@')[0];
+          }
+          
+          console.log('[USER SELECT MODAL] 사용자 병합:', {
+            id: user.id,
+            rpcName: user.name,
+            profileName: profile?.name,
+            finalName: finalName,
+            hasProfile: profileIds.has(user.id)
+          });
+          
+          return {
+            ...user,
+            name: finalName, // 프로필의 name이 있으면 사용, 없으면 RPC에서 가져온 name 사용
+            email: profile?.email || user.email || '', // 프로필의 email이 있으면 사용
+            hasProfile: profileIds.has(user.id)
+          };
+        });
         
         console.log('[USER SELECT MODAL] 프로필 있는 사용자:', usersWithProfile.filter(u => u.hasProfile).length);
         console.log('[USER SELECT MODAL] 프로필 없는 사용자:', usersWithProfile.filter(u => !u.hasProfile).length);
@@ -578,15 +610,6 @@ function UserSelectModal({
     loadUsers();
   }, []);
 
-  const getRoleLabelLocal = (role: UserRole): string => {
-    switch (role) {
-      case 'admin': return '관리자';
-      case 'teacher': return '담임 교사';
-      case 'subject_teacher': return '교과 교사';
-      case 'student_monitor': return '학생 반장';
-      default: return role;
-    }
-  };
 
   console.log('[USER SELECT MODAL] 모달 렌더링', { 
     allUsersCount: allUsers.length, 
@@ -620,18 +643,17 @@ function UserSelectModal({
         return false;
       }
       
-      // 검색어 필터링 (이름, 이메일, 역할로 검색)
+      // 검색어 필터링 (이름, 이메일로 검색 - 역할 배지는 검색에서 제외)
       if (searchQuery && searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim();
         const userName = (user.name || '').toLowerCase();
         const userEmail = (user.email || '').toLowerCase();
-        const roleLabel = getRoleLabelLocal(user.role).toLowerCase();
         
+        // 이름과 이메일만 검색 (역할 배지는 검색에서 제외)
         const nameMatch = userName.includes(query);
         const emailMatch = userEmail.includes(query);
-        const roleMatch = roleLabel.includes(query);
         
-        if (!nameMatch && !emailMatch && !roleMatch) {
+        if (!nameMatch && !emailMatch) {
           return false;
         }
       }
@@ -812,23 +834,45 @@ function UserSelectModal({
                     </div>
                     <div className="user-info">
                       <div className="user-name-row">
-                        <span className="user-name">{user.name || '이름 없음'}</span>
-                        <span className={`role-badge role-${user.role}`}>
-                          {getRoleLabelLocal(user.role)}
+                        <span className="user-name">
+                          {user.name || '이름 없음'}
+                          {user.email && (
+                            <span className="user-email-inline">({user.email})</span>
+                          )}
                         </span>
-                        {(user as any).hasProfile === false && (
+                      </div>
+                      {(user as any).hasProfile === false && (
+                        <div className="user-role-row">
                           <span className="profile-status-badge new-user">
                             새 사용자
                           </span>
-                        )}
-                      </div>
-                      {user.email && (
-                        <div className="user-email-row">
-                          <Mail size={14} />
-                          <span className="user-email">{user.email}</span>
                         </div>
                       )}
                     </div>
+                    {(user as any).hasProfile === true && (
+                      <button
+                        className="delete-user-btn-modal"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm(`${user.name || '이 사용자'}를 삭제하시겠습니까?`)) {
+                            await onDeleteUser(user.id);
+                            // 사용자 목록 새로고침
+                            const authUsers = await getAllAuthUsers();
+                            const profileUsers = await getAllUsers();
+                            const profileIds = new Set(profileUsers.map(u => u.id));
+                            const usersWithProfile = authUsers.map(u => ({
+                              ...u,
+                              hasProfile: profileIds.has(u.id)
+                            }));
+                            setAllUsers(usersWithProfile);
+                          }
+                        }}
+                        disabled={user.id === currentUser?.id}
+                        title={user.id === currentUser?.id ? '자신의 계정은 삭제할 수 없습니다' : '사용자 삭제'}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 );
               })}

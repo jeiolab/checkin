@@ -54,20 +54,46 @@ export const getAllAuthUsers = async (): Promise<User[]> => {
     }
 
     console.log('[SUPABASE AUTH USERS] RPC에서 조회된 사용자 수:', data?.length || 0);
+    
+    // 첫 번째 사용자 데이터 구조 확인
+    if (data && data.length > 0) {
+      console.log('[SUPABASE AUTH USERS] 첫 번째 사용자 데이터 샘플:', {
+        id: data[0].id,
+        name: data[0].name,
+        email: data[0].email,
+        has_profile: data[0].has_profile,
+        user_metadata: data[0].user_metadata
+      });
+    }
 
-    const users: User[] = (data || []).map((authUser: any) => ({
-      id: authUser.id,
-      name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || '이름 없음',
-      email: authUser.email || '',
-      role: (authUser.user_metadata?.role || 'teacher') as UserRole,
-      grade: authUser.user_metadata?.grade as Grade | undefined,
-      class: authUser.user_metadata?.class as Class | undefined,
-      subject: authUser.user_metadata?.subject || undefined,
-      studentId: authUser.user_metadata?.studentId || undefined,
-      createdAt: authUser.created_at || format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
-      lastLogin: authUser.last_sign_in_at || undefined,
-      hasProfile: authUser.has_profile || false, // user_profiles에 존재하는지 여부
-    }));
+    const users: User[] = (data || []).map((authUser: any) => {
+      // RPC 함수에서 이미 name을 가져왔으므로 그대로 사용
+      // RPC 함수는 user_profiles의 name 우선, 없으면 auth.users의 user_metadata->name 사용
+      const userName = authUser.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || '이름 없음';
+      
+      console.log('[SUPABASE AUTH USERS] 사용자 변환:', {
+        id: authUser.id,
+        rpcName: authUser.name,
+        metadataName: authUser.user_metadata?.name,
+        email: authUser.email,
+        finalName: userName,
+        hasProfile: authUser.has_profile
+      });
+      
+      return {
+        id: authUser.id,
+        name: userName,
+        email: authUser.email || '',
+        role: (authUser.user_metadata?.role || 'teacher') as UserRole,
+        grade: authUser.user_metadata?.grade as Grade | undefined,
+        class: authUser.user_metadata?.class as Class | undefined,
+        subject: authUser.user_metadata?.subject || undefined,
+        studentId: authUser.user_metadata?.studentId || undefined,
+        createdAt: authUser.created_at || format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+        lastLogin: authUser.last_sign_in_at || undefined,
+        hasProfile: authUser.has_profile || false, // user_profiles에 존재하는지 여부
+      };
+    });
 
     console.log('[SUPABASE AUTH USERS] 변환된 사용자 수:', users.length);
     return users;

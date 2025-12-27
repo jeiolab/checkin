@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Trash2, Edit2, Search, UserPlus, Shield, GraduationCap, BookOpen, Users, Mail, Calendar, Clock, MoreVertical } from 'lucide-react';
-import { getAllUsers, createUser, updateUser, deleteUser } from '../utils/user-supabase';
+import { getAllUsers, getAllAuthUsers, addUsersToProfiles, createUser, updateUser, deleteUser } from '../utils/user-supabase';
 import { getCurrentUser, canEditSettings } from '../utils/auth-supabase';
 import { sanitizeInput, validateEmail, validatePasswordStrength, validateUserName } from '../utils/security';
 import type { User, UserRole, Grade, Class } from '../types';
@@ -87,68 +87,32 @@ export default function UserManagement() {
     }
 
     const roleLabel = getRoleLabel(role);
-    if (!confirm(`선택한 ${userIds.length}명의 사용자에게 "${roleLabel}" 역할을 부여하시겠습니까?`)) {
+    if (!confirm(`선택한 ${userIds.length}명의 사용자를 user_profiles에 추가하고 "${roleLabel}" 역할을 부여하시겠습니까?`)) {
       return;
     }
 
-    let successCount = 0;
-    let failCount = 0;
-    const errors: string[] = [];
-
-    for (const userId of userIds) {
-      const user = users.find(u => u.id === userId);
-      if (!user) continue;
-
-      // 역할에 따른 추가 정보 설정
-      const updates: {
-        role: UserRole;
-        grade?: Grade;
-        class?: Class;
-        subject?: string;
-      } = {
-        role,
-      };
-
-      // 역할별 필수 정보 유지 또는 초기화
-      if (role === 'teacher') {
-        // 담임 교사는 학년/반 정보 필요 (기존 정보 유지)
-        if (user.grade && user.class) {
-          updates.grade = user.grade;
-          updates.class = user.class;
-        }
-      } else if (role === 'subject_teacher') {
-        // 교과 교사는 과목 정보 필요 (기존 정보 유지)
-        if (user.subject) {
-          updates.subject = user.subject;
-        }
-      } else if (role === 'student_monitor') {
-        // 학생 반장은 학년/반 정보 필요 (기존 정보 유지)
-        if (user.grade && user.class) {
-          updates.grade = user.grade;
-          updates.class = user.class;
-        }
-      }
-
-      const success = await updateUser(userId, updates);
-
-      if (success) {
-        successCount++;
-      } else {
-        failCount++;
-        errors.push(`${user.name}: 역할 업데이트 실패`);
-      }
-    }
+    // auth.users의 사용자를 user_profiles에 추가하고 역할 부여
+    const result = await addUsersToProfiles(userIds, role);
 
     await loadUsers();
 
-    if (failCount > 0) {
-      alert(`역할 부여 완료\n성공: ${successCount}명\n실패: ${failCount}명\n\n오류:\n${errors.join('\n')}`);
+    if (result.failed === 0) {
+      alert(`성공적으로 ${result.success}명의 사용자를 user_profiles에 추가하고 역할을 부여했습니다.`);
+      setShowUserSelectModal(false);
+      setSelectedUserIds(new Set());
+      setSelectedRole('teacher');
     } else {
-      alert(`${successCount}명의 사용자에게 "${roleLabel}" 역할이 부여되었습니다.`);
+      const errorMsg = result.errors.length > 0 
+        ? `\n\n오류:\n${result.errors.join('\n')}`
+        : '';
+      alert(`성공: ${result.success}명, 실패: ${result.failed}명${errorMsg}`);
+      // 일부 성공한 경우에도 모달 닫기
+      if (result.success > 0) {
+        setShowUserSelectModal(false);
+        setSelectedUserIds(new Set());
+        setSelectedRole('teacher');
+      }
     }
-
-    setShowUserSelectModal(false);
-    setSelectedUserIds(new Set());
   };
 
   const handleAddUser = async (userData: Omit<User, 'id' | 'createdAt'>) => {
@@ -517,18 +481,9 @@ export default function UserManagement() {
             }
             setSelectedUserIds(newSelected);
           }}
-          onSelectAll={(selectAll) => {
-            console.log('[USER MANAGEMENT] 전체 선택:', selectAll);
-            if (selectAll) {
-              // 현재 사용자 제외하고 모든 사용자 선택
-              const allIds = users
-                .filter(u => u.id !== currentUser?.id)
-                .map(u => u.id);
-              console.log('[USER MANAGEMENT] 선택된 사용자 ID:', Array.from(allIds));
-              setSelectedUserIds(new Set(allIds));
-            } else {
-              setSelectedUserIds(new Set());
-            }
+          onSelectAll={(userIds) => {
+            console.log('[USER MANAGEMENT] 전체 선택/해제:', userIds.length, '명');
+            setSelectedUserIds(new Set(userIds));
           }}
           selectedRole={selectedRole}
           onRoleChange={(role) => {
@@ -563,7 +518,7 @@ interface UserSelectModalProps {
   currentUser: User | null;
   selectedUserIds: Set<string>;
   onSelectUser: (userId: string) => void;
-  onSelectAll: (selectAll: boolean) => void;
+  onSelectAll: (userIds: string[]) => void;
   selectedRole: UserRole;
   onRoleChange: (role: UserRole) => void;
   onAssignRole: (userIds: string[], role: UserRole) => Promise<void>;
@@ -571,7 +526,7 @@ interface UserSelectModalProps {
 }
 
 function UserSelectModal({
-  allUsers,
+  allUsers: initialUsers,
   currentUser,
   selectedUserIds,
   onSelectUser,
@@ -584,6 +539,44 @@ function UserSelectModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>(initialUsers);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 모달이 열릴 때 auth.users에서 사용자 목록 로드
+  useEffect(() => {
+    const loadUsers = async () => {
+      setIsLoading(true);
+      try {
+        console.log('[USER SELECT MODAL] auth.users에서 사용자 목록 로드 시작');
+        // auth.users에서 모든 사용자 가져오기
+        const authUsers = await getAllAuthUsers();
+        console.log('[USER SELECT MODAL] auth.users에서 로드된 사용자 수:', authUsers.length);
+        
+        // user_profiles에 있는 사용자도 가져오기 (프로필 존재 여부 확인용)
+        const profileUsers = await getAllUsers();
+        const profileIds = new Set(profileUsers.map(u => u.id));
+        
+        // hasProfile 플래그 추가
+        const usersWithProfile = authUsers.map(user => ({
+          ...user,
+          hasProfile: profileIds.has(user.id)
+        }));
+        
+        console.log('[USER SELECT MODAL] 프로필 있는 사용자:', usersWithProfile.filter(u => u.hasProfile).length);
+        console.log('[USER SELECT MODAL] 프로필 없는 사용자:', usersWithProfile.filter(u => !u.hasProfile).length);
+        
+        setAllUsers(usersWithProfile);
+      } catch (error) {
+        console.error('[USER SELECT MODAL] 사용자 목록 로드 오류:', error);
+        // 오류 발생 시 빈 배열 설정
+        setAllUsers([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadUsers();
+  }, []);
 
   const getRoleLabelLocal = (role: UserRole): string => {
     switch (role) {
@@ -598,31 +591,86 @@ function UserSelectModal({
   console.log('[USER SELECT MODAL] 모달 렌더링', { 
     allUsersCount: allUsers.length, 
     currentUserId: currentUser?.id,
-    selectedRole 
+    selectedRole,
+    isLoading
   });
 
   const filteredUsers = useMemo(() => {
+    console.log('[USER SELECT MODAL] 필터링 시작', { 
+      totalUsers: allUsers.length, 
+      searchQuery, 
+      filterRole,
+      isLoading
+    });
+    
+    if (isLoading) {
+      return [];
+    }
+    
     const filtered = allUsers.filter(user => {
       // 현재 사용자 제외
       if (user.id === currentUser?.id) return false;
       
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const nameMatch = user.name.toLowerCase().includes(query);
-        const emailMatch = user.email?.toLowerCase().includes(query);
-        const roleMatch = getRoleLabelLocal(user.role).toLowerCase().includes(query);
-        if (!nameMatch && !emailMatch && !roleMatch) return false;
+      // 검색어 필터링 (이름, 이메일, 역할로 검색)
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const nameMatch = (user.name || '').toLowerCase().includes(query);
+        const emailMatch = (user.email || '').toLowerCase().includes(query);
+        const roleLabel = getRoleLabelLocal(user.role).toLowerCase();
+        const roleMatch = roleLabel.includes(query);
+        
+        console.log('[USER SELECT MODAL] 검색 매칭', {
+          userId: user.id,
+          name: user.name,
+          nameMatch,
+          emailMatch,
+          roleMatch,
+          query
+        });
+        
+        if (!nameMatch && !emailMatch && !roleMatch) {
+          return false;
+        }
       }
-      if (filterRole !== 'all' && user.role !== filterRole) return false;
+      
+      // 역할 필터링
+      if (filterRole !== 'all' && user.role !== filterRole) {
+        return false;
+      }
+      
       return true;
     });
-    console.log('[USER SELECT MODAL] 필터링된 사용자 수:', filtered.length);
+    
+    console.log('[USER SELECT MODAL] 필터링 완료', { 
+      filteredCount: filtered.length,
+      searchQuery,
+      sampleUsers: filtered.slice(0, 3).map(u => ({ name: u.name, email: u.email, role: u.role }))
+    });
+    
     return filtered;
-  }, [allUsers, currentUser, searchQuery, filterRole]);
+  }, [allUsers, currentUser, searchQuery, filterRole, isLoading]);
 
   const selectableCount = filteredUsers.length;
   const selectedCount = filteredUsers.filter(u => selectedUserIds.has(u.id)).length;
   const allSelected = selectableCount > 0 && selectedCount === selectableCount;
+
+  const handleSelectAll = (selectAll: boolean) => {
+    const filteredIds = filteredUsers.map(u => u.id);
+    
+    if (selectAll) {
+      // 필터링된 사용자 모두 선택 (기존 선택 유지)
+      const newSelected = new Set(selectedUserIds);
+      filteredIds.forEach(id => newSelected.add(id));
+      console.log('[USER SELECT MODAL] 전체 선택:', filteredIds.length, '명');
+      onSelectAll(Array.from(newSelected));
+    } else {
+      // 필터링된 사용자만 해제
+      const newSelected = new Set(selectedUserIds);
+      filteredIds.forEach(id => newSelected.delete(id));
+      console.log('[USER SELECT MODAL] 전체 해제');
+      onSelectAll(Array.from(newSelected));
+    }
+  };
 
   const handleAssign = async () => {
     if (selectedUserIds.size === 0) {
@@ -641,18 +689,32 @@ function UserSelectModal({
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content user-select-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>사용자 선택 및 역할 부여</h3>
+        <div className="modal-header">
+          <h3>사용자 선택 및 역할 부여</h3>
+          <p className="modal-subtitle">Supabase auth.users에서 사용자를 검색하여 user_profiles에 추가하고 역할을 부여합니다</p>
+        </div>
         
         <div className="user-select-controls">
           <div className="search-box">
-            <Search size={18} />
+            <Search size={20} />
             <input
               type="text"
               placeholder="이름, 이메일 또는 역할로 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
+              autoFocus
             />
+            {searchQuery && (
+              <button
+                type="button"
+                className="clear-search"
+                onClick={() => setSearchQuery('')}
+                aria-label="검색어 지우기"
+              >
+                ×
+              </button>
+            )}
           </div>
           <select
             value={filterRole}
@@ -668,17 +730,22 @@ function UserSelectModal({
         </div>
 
         <div className="role-select-section">
-          <label>부여할 역할:</label>
-          <select
-            value={selectedRole}
-            onChange={(e) => onRoleChange(e.target.value as UserRole)}
-            className="role-select"
-          >
-            <option value="admin">관리자</option>
-            <option value="teacher">담임 교사</option>
-            <option value="subject_teacher">교과 교사</option>
-            <option value="student_monitor">학생 반장</option>
-          </select>
+          <div className="role-select-wrapper">
+            <label className="role-label">
+              <Shield size={18} />
+              부여할 역할
+            </label>
+            <select
+              value={selectedRole}
+              onChange={(e) => onRoleChange(e.target.value as UserRole)}
+              className="role-select"
+            >
+              <option value="admin">관리자</option>
+              <option value="teacher">담임 교사</option>
+              <option value="subject_teacher">교과 교사</option>
+              <option value="student_monitor">학생 반장</option>
+            </select>
+          </div>
         </div>
 
         <div className="user-list-header">
@@ -686,17 +753,37 @@ function UserSelectModal({
             <input
               type="checkbox"
               checked={allSelected}
-              onChange={(e) => onSelectAll(e.target.checked)}
+              onChange={(e) => handleSelectAll(e.target.checked)}
             />
-            <span>전체 선택 ({selectedCount}/{selectableCount})</span>
+            <span className="select-all-text">
+              전체 선택 <span className="count-badge">({selectedCount}/{selectableCount})</span>
+            </span>
           </label>
+          {searchQuery && (
+            <div className="search-result-info">
+              검색 결과: <strong>{filteredUsers.length}명</strong>
+            </div>
+          )}
         </div>
 
         <div className="user-list-content">
-          {filteredUsers.length === 0 ? (
+          {isLoading ? (
             <div className="empty-state">
-              <Users size={48} />
-              <p>선택할 수 있는 사용자가 없습니다.</p>
+              <div className="spinner-large"></div>
+              <h4>사용자 목록을 불러오는 중...</h4>
+              <p>잠시만 기다려주세요.</p>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="empty-state">
+              <Users size={64} />
+              <h4>선택할 수 있는 사용자가 없습니다</h4>
+              <p>
+                {searchQuery 
+                  ? `"${searchQuery}"에 대한 검색 결과가 없습니다.` 
+                  : allUsers.length === 0
+                  ? '사용자 목록이 비어있습니다.'
+                  : '모든 사용자가 선택되었거나 필터 조건에 맞는 사용자가 없습니다.'}
+              </p>
             </div>
           ) : (
             <div className="user-list">
@@ -709,18 +796,35 @@ function UserSelectModal({
                     className={`user-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => onSelectUser(user.id)}
                   >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => onSelectUser(user.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                    <div className="user-checkbox-wrapper">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => onSelectUser(user.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                    <div className="user-avatar-small">
+                      {user.name?.[0]?.toUpperCase() || 'U'}
+                    </div>
                     <div className="user-info">
-                      <span className="user-name">{user.name}</span>
-                      {user.email && <span className="user-email">{user.email}</span>}
-                      <span className={`current-role role-${user.role}`}>
-                        현재: {getRoleLabelLocal(user.role)}
-                      </span>
+                      <div className="user-name-row">
+                        <span className="user-name">{user.name || '이름 없음'}</span>
+                        <span className={`role-badge role-${user.role}`}>
+                          {getRoleLabelLocal(user.role)}
+                        </span>
+                        {(user as any).hasProfile === false && (
+                          <span className="profile-status-badge new-user">
+                            새 사용자
+                          </span>
+                        )}
+                      </div>
+                      {user.email && (
+                        <div className="user-email-row">
+                          <Mail size={14} />
+                          <span className="user-email">{user.email}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -739,7 +843,17 @@ function UserSelectModal({
             className="save-btn"
             disabled={selectedUserIds.size === 0 || isAssigning}
           >
-            {isAssigning ? '역할 부여 중...' : `선택한 ${selectedUserIds.size}명에게 역할 부여`}
+            {isAssigning ? (
+              <>
+                <span className="spinner"></span>
+                역할 부여 중...
+              </>
+            ) : (
+              <>
+                <UserPlus size={18} />
+                선택한 {selectedUserIds.size}명에게 역할 부여
+              </>
+            )}
           </button>
         </div>
       </div>

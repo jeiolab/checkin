@@ -7,6 +7,47 @@ import { format } from 'date-fns';
  */
 
 /**
+ * auth.users에서 모든 사용자 가져오기 (RPC 함수 사용)
+ * Supabase의 auth.users 테이블에서 모든 사용자 정보를 가져옵니다
+ */
+export const getAllAuthUsers = async (): Promise<User[]> => {
+  try {
+    console.log('[SUPABASE AUTH USERS] 모든 auth.users 사용자 조회 시작');
+    
+    // RPC 함수 호출 (서버에서 auth.users 조회)
+    const { data, error } = await supabase.rpc('get_all_auth_users');
+
+    if (error) {
+      console.error('[SUPABASE AUTH USERS] RPC 호출 오류:', error.message, error);
+      // RPC 함수가 없으면 빈 배열 반환
+      return [];
+    }
+
+    console.log('[SUPABASE AUTH USERS] 조회된 사용자 수:', data?.length || 0);
+
+    const users: User[] = (data || []).map((authUser: any) => ({
+      id: authUser.id,
+      name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || '이름 없음',
+      email: authUser.email || '',
+      role: (authUser.user_metadata?.role || 'teacher') as UserRole,
+      grade: authUser.user_metadata?.grade as Grade | undefined,
+      class: authUser.user_metadata?.class as Class | undefined,
+      subject: authUser.user_metadata?.subject || undefined,
+      studentId: authUser.user_metadata?.studentId || undefined,
+      createdAt: authUser.created_at || format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+      lastLogin: authUser.last_sign_in_at || undefined,
+      hasProfile: authUser.has_profile || false, // user_profiles에 존재하는지 여부
+    }));
+
+    console.log('[SUPABASE AUTH USERS] 변환된 사용자 수:', users.length);
+    return users;
+  } catch (error) {
+    console.error('[SUPABASE AUTH USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류', error);
+    return [];
+  }
+};
+
+/**
  * 모든 사용자 가져오기 (관리자만)
  * Supabase의 user_profiles 테이블에서 모든 사용자 정보를 가져옵니다
  */
@@ -163,6 +204,108 @@ export const createUser = async (
     const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
     console.error('[SUPABASE USERS] 예외 발생:', errorMessage);
     return { user: null, error: errorMessage };
+  }
+};
+
+/**
+ * auth.users의 사용자를 user_profiles에 복사하고 역할 부여
+ */
+export const addUsersToProfiles = async (
+  userIds: string[],
+  role: UserRole
+): Promise<{ success: number; failed: number; errors: string[] }> => {
+  try {
+    console.log('[SUPABASE USERS] 사용자를 user_profiles에 추가 시작:', { userIds, role });
+    
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    // 먼저 모든 사용자 정보를 한 번에 가져오기
+    const allAuthUsers = await getAllAuthUsers();
+    const userMap = new Map(allAuthUsers.map(u => [u.id, u]));
+
+    for (const userId of userIds) {
+      try {
+        const authUser = userMap.get(userId);
+        
+        if (!authUser) {
+          // RPC 함수로 사용자 정보 가져오기 시도
+          const { data: userData, error: rpcError } = await supabase.rpc('get_auth_user_by_id', { user_id: userId });
+          
+          if (rpcError || !userData || userData.length === 0) {
+            errors.push(`${userId}: 사용자 정보를 가져올 수 없습니다.`);
+            failCount++;
+            continue;
+          }
+          
+          const userInfo = userData[0];
+          const userEmail = userInfo.email || '';
+          const userName = userInfo.user_metadata?.name || userInfo.email?.split('@')[0] || '이름 없음';
+
+          // user_profiles에 삽입 또는 업데이트
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .upsert({
+              id: userId,
+              email: userEmail,
+              name: userName,
+              role: role,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: 'id'
+            });
+
+          if (profileError) {
+            console.error(`[SUPABASE USERS] 프로필 추가 실패 (${userId}):`, profileError.message);
+            errors.push(`${userName || userId}: ${profileError.message}`);
+            failCount++;
+          } else {
+            console.log(`[SUPABASE USERS] 프로필 추가 성공: ${userName} (${userEmail})`);
+            successCount++;
+          }
+        } else {
+          // 이미 가져온 사용자 정보 사용
+          const userEmail = authUser.email || '';
+          const userName = authUser.name || '이름 없음';
+
+          // user_profiles에 삽입 또는 업데이트
+          const { error: profileError } = await supabase
+            .from('user_profiles')
+            .upsert({
+              id: userId,
+              email: userEmail,
+              name: userName,
+              role: role,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }, {
+              onConflict: 'id'
+            });
+
+          if (profileError) {
+            console.error(`[SUPABASE USERS] 프로필 추가 실패 (${userId}):`, profileError.message);
+            errors.push(`${userName || userId}: ${profileError.message}`);
+            failCount++;
+          } else {
+            console.log(`[SUPABASE USERS] 프로필 추가 성공: ${userName} (${userEmail})`);
+            successCount++;
+          }
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+        console.error(`[SUPABASE USERS] 사용자 추가 중 오류 (${userId}):`, errorMsg);
+        errors.push(`${userId}: ${errorMsg}`);
+        failCount++;
+      }
+    }
+
+    console.log('[SUPABASE USERS] 사용자 추가 완료:', { successCount, failCount });
+    return { success: successCount, failed: failCount, errors };
+  } catch (error) {
+    console.error('[SUPABASE USERS] 예외 발생:', error instanceof Error ? error.message : '알 수 없는 오류', error);
+    return { success: 0, failed: userIds.length, errors: [error instanceof Error ? error.message : '알 수 없는 오류'] };
   }
 };
 
